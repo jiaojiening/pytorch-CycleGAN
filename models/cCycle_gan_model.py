@@ -18,14 +18,14 @@ class cCycleGANModel(BaseModel):
             parser.add_argument('--lambda_B', type=float, default=10.0,
                                 help='weight for cycle loss (B -> A -> B)')
             parser.add_argument('--lambda_identity', type=float, default=0.5, help='use identity mapping. Setting lambda_identity other than 0 has an effect of scaling the weight of the identity mapping loss. For example, if the weight of the identity loss should be 10 times smaller than the weight of the reconstruction loss, please set lambda_identity = 0.1')
-
+            parser.add_argument('--lambda_Rec', type=float, default=10.0, help='weight for reconstruction loss')
         return parser
 
     def initialize(self, opt):
         BaseModel.initialize(self, opt)
 
         # specify the training losses you want to print out. The program will call base_model.get_current_losses
-        self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B']
+        self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B', 'Rec']
         # specify the images you want to save/display. The program will call base_model.get_current_visuals
         visual_names_A = ['real_A', 'fake_B', 'rec_A']
         visual_names_B = ['real_B', 'fake_A', 'rec_B', 'GT_B']
@@ -73,6 +73,7 @@ class cCycleGANModel(BaseModel):
             self.criterionGAN = networks.GANLoss(use_lsgan=not opt.no_lsgan).to(self.device)
             self.criterionCycle = torch.nn.L1Loss()
             self.criterionIdt = torch.nn.L1Loss()
+            self.criterionRec = torch.nn.L1Loss()
             # initialize optimizers
             self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG_A.parameters(), self.netG_B.parameters()),
                                                 lr=opt.lr, betas=(opt.beta1, 0.999))
@@ -83,10 +84,9 @@ class cCycleGANModel(BaseModel):
             self.optimizers.append(self.optimizer_D)
 
     def set_input(self, input):
-        AtoB = self.opt.direction == 'AtoB'
-        self.real_A = input['A' if AtoB else 'B'].to(self.device)
-        self.real_B = input['B' if AtoB else 'A'].to(self.device)
-        self.image_paths = input['A_paths' if AtoB else 'B_paths']
+        self.real_A = input['A'].to(self.device)
+        self.real_B = input['B'].to(self.device)
+        self.image_paths = input['A_paths']
         # add the conditional attributes vector
         # B also has the attributes A_real_attr
         self.A_real_attr = input['A_real_attr'].to(self.device)
@@ -94,19 +94,21 @@ class cCycleGANModel(BaseModel):
 
         # load the ground-truth high resolution B image to test the SR quality
         self.GT_B = input['GT_B'].to(self.device)
+        # load the ground-truth low resolution A image
+        self.GT_A = input['GT_A'].to(self.device)
 
     def forward(self):
+        # HR -> LR -> HR
         self.fake_B = self.netG_A(self.real_A)
-
         # replicate the attributes to the size of the image
         A_real_attr = torch.unsqueeze(self.A_real_attr, 2)  # add a new axis
         A_real_attr = A_real_attr.repeat(1, 1, self.fake_B.size()[2] * self.fake_B.size()[3])
         A_real_attr = torch.reshape(A_real_attr, (-1, self.num_attr, self.fake_B.size()[2], self.fake_B.size()[3]))
         A_real_attr = A_real_attr.float()
-
         self.comb_input_fake = torch.cat([A_real_attr, self.fake_B], 1)
         self.rec_A = self.netG_B(self.comb_input_fake)
 
+        # LR -> HR -> LR
         self.comb_input_real = torch.cat([A_real_attr, self.real_B], 1)
         self.fake_A = self.netG_B(self.comb_input_real)
         self.rec_B = self.netG_A(self.fake_A)
@@ -163,6 +165,7 @@ class cCycleGANModel(BaseModel):
         lambda_idt = self.opt.lambda_identity
         lambda_A = self.opt.lambda_A
         lambda_B = self.opt.lambda_B
+        lambda_Rec = self.opt.lambda_Rec
         # Identity loss
         if lambda_idt > 0:
             # G_A should be identity if real_B is fed.
@@ -192,6 +195,10 @@ class cCycleGANModel(BaseModel):
         self.loss_cycle_B = self.criterionCycle(self.rec_B, self.real_B) * lambda_B
         # combined loss
         self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B
+
+        # reconstruct loss of low resolution fake_B
+        self.loss_Rec = self.criterionRec(self.fake_B, self.GT_A) * lambda_Rec
+        self.loss_G += self.loss_Rec
         self.loss_G.backward()
 
     def optimize_parameters(self):

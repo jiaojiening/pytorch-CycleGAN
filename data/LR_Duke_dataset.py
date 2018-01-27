@@ -81,9 +81,9 @@ class LRDukeDataset(BaseDataset):
             # for i in self.B_labels:
             #     self.B_attr.append(self.train_attr[i])
 
-        self.img_paths = self.train_paths
-        self.img_labels = self.train_labels
-        self.img_size = len(self.train_paths)
+            self.img_paths = self.train_paths
+            self.img_labels = train_id_labels
+            self.img_size = len(self.train_paths)
 
         # A: high_resolution, B: low_resolution
         # opt.fineSize = 128, opt.loadSize = 158, need to modify
@@ -108,6 +108,7 @@ class LRDukeDataset(BaseDataset):
             img = self.transform_LR(img)
         img = self.transform_norm(img)
 
+        # print(img_label)
         img_attr = self.train_attr[img_label]
 
         return {'img': img, 'img_paths': img_path,

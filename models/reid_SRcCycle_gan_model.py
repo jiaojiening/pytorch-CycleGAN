@@ -21,6 +21,7 @@ class ReidSRcCycleGANModel(BaseModel):
             parser.add_argument('--lambda_identity', type=float, default=0.5, help='use identity mapping. Setting lambda_identity other than 0 has an effect of scaling the weight of the identity mapping loss. For example, if the weight of the identity loss should be 10 times smaller than the weight of the reconstruction loss, please set lambda_identity = 0.1')
             # reid parameters
             parser.add_argument('--droprate', type=float, default=0.5, help='the dropout ratio in reid model')
+            parser.add_argument('--lambda_Rec', type=float, default=10.0, help='weight for reconstruction loss')
         return parser
 
     def initialize(self, opt):
@@ -28,6 +29,7 @@ class ReidSRcCycleGANModel(BaseModel):
 
         # specify the training losses you want to print out. The program will call base_model.get_current_losses
         self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B', 'reid']
+        # self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B', 'reid', 'Rec']
         # specify the images you want to save/display. The program will call base_model.get_current_visuals
         visual_names_A = ['real_A', 'fake_B', 'rec_A']
         visual_names_B = ['real_B', 'fake_A', 'rec_B', 'GT_B']
@@ -77,6 +79,7 @@ class ReidSRcCycleGANModel(BaseModel):
             self.criterionGAN = networks.GANLoss(use_lsgan=not opt.no_lsgan).to(self.device)
             self.criterionCycle = torch.nn.L1Loss()
             self.criterionIdt = torch.nn.L1Loss()
+            self.criterionRec = torch.nn.L1Loss()
             self.criterionReid = torch.nn.CrossEntropyLoss()
             # initialize optimizers
             self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG_A.parameters(), self.netG_B.parameters()),
@@ -116,9 +119,8 @@ class ReidSRcCycleGANModel(BaseModel):
             self.netD_reid.train()
 
     def set_input(self, input):
-        AtoB = self.opt.direction == 'AtoB'
-        self.real_A = input['A' if AtoB else 'B'].to(self.device)
-        self.real_B = input['B' if AtoB else 'A'].to(self.device)
+        self.real_A = input['A'].to(self.device)
+        self.real_B = input['B'].to(self.device)
         self.image_paths = input['A_paths']
         # add the conditional attributes vector
         self.A_real_attr = input['A_real_attr'].to(self.device)
@@ -169,8 +171,12 @@ class ReidSRcCycleGANModel(BaseModel):
         # self.imags = torch.cat([self.real_A, self.fake_A, self.fake_B], 0)
         # self.labels = torch.cat([self.A_label, self.B_label, self.A_label], 0)
 
-        self.imags = torch.cat([self.real_A, self.fake_A], 0)
-        self.labels = torch.cat([self.A_label, self.B_label], 0)
+        # self.imags = torch.cat([self.real_A, self.fake_A], 0)
+        # self.labels = torch.cat([self.A_label, self.B_label], 0)
+        self.imags = torch.cat([self.real_A, self.fake_A, self.rec_A, self.real_B, self.fake_B, self.rec_B], 0)
+        self.labels = torch.cat([self.A_label, self.B_label, self.A_label,
+                                 self.B_label, self.A_label, self.B_label])
+
         self.pred_imgs = self.netD_reid(self.imags)
 
     def psnr_eval(self):
@@ -225,6 +231,7 @@ class ReidSRcCycleGANModel(BaseModel):
         lambda_idt = self.opt.lambda_identity
         lambda_A = self.opt.lambda_A
         lambda_B = self.opt.lambda_B
+        lambda_Rec = self.opt.lambda_Rec
         # Identity loss
         if lambda_idt > 0:
             # G_A should be identity if real_B is fed.
@@ -257,6 +264,10 @@ class ReidSRcCycleGANModel(BaseModel):
         self.loss_cycle_B = self.criterionCycle(self.rec_B, self.real_B) * lambda_B
         # combined loss
         self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B
+
+        # reconstruct loss of low resolution fake_B
+        # self.loss_rec = self.criterionRec(self.fake_B, self.GT_A) * lambda_Rec
+        # self.loss_G += self.loss_rec
 
         # # add reid loss to update the G_B(LR-HR)
         # _, pred_label_real_A = torch.max(self.pred_real_A, 1)

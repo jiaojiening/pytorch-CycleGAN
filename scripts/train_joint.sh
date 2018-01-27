@@ -31,7 +31,13 @@ python train_joint.py --dataroot DukeMTMC-reID \
 --SR_name Duke_SRcCyclegan_upscale_8_resnet_6blocks \
 --reid_name SRcCyclegan_Duke_Reid_upscale_8_resnet_6blocks \
 --dataset_mode Duke --model reid_SRcCycle_gan \
---up_scale 8 --gpu 2,7 --no_dropout --batch_size 12 --netG resnet_6blocks --stage 0
+--up_scale 8 --gpu 0,1 --no_dropout --batch_size 12 --reid_lr 0.06 --netG resnet_6blocks --stage 0
+python train_joint.py --dataroot DukeMTMC-reID \
+--name Duke_reid_SRcCyclegan_upscale_8_resnet_6blocks_stage0_all \
+--SR_name Duke_SRcCyclegan_upscale_8_resnet_6blocks \
+--reid_name SRcCyclegan_Duke_Reid_upscale_8_resnet_6blocks \
+--dataset_mode Duke --model reid_SRcCycle_gan \
+--up_scale 8 --gpu 6,7 --no_dropout --batch_size 12 --reid_lr 0.1 --netG resnet_6blocks --stage 0
 
 python train_joint.py --dataroot DukeMTMC-reID \
 --name Duke_reid_SRcCyclegan_upscale_8_resnet_6blocks_stage1 \
@@ -58,7 +64,13 @@ python train_joint.py --dataroot DukeMTMC-reID \
 --SR_name Duke_cyclegan_upscale_8 \
 --reid_name cyclegan_Duke_Reid_upscale_8 \
 --dataset_mode paired_Duke --model reid_cycle_gan \
---up_scale 8 --gpu 2,5 --no_dropout --batch_size 12 --netG resnet_6blocks --stage 0
+--up_scale 8 --gpu 6,7 --no_dropout --batch_size 12 --reid_lr 0.06 --netG resnet_6blocks --stage 0
+python train_joint.py --dataroot DukeMTMC-reID \
+--name Duke_reid_cyclegan_upscale_8_resnet_6blocks_stage0_all \
+--SR_name Duke_cyclegan_upscale_8 \
+--reid_name cyclegan_Duke_Reid_upscale_8 \
+--dataset_mode paired_Duke --model reid_cycle_gan \
+--up_scale 8 --gpu 6,7 --no_dropout --batch_size 12 --reid_lr 0.1 --netG resnet_6blocks --stage 0
 
 python train_joint.py --dataroot DukeMTMC-reID \
 --name Duke_reid_attr_paired_cCyclegan_upscale_8_resnet_6blocks_stage0 \
@@ -87,12 +99,13 @@ python train_joint.py --dataroot DukeMTMC-reID \
 --dataset_mode paired_Duke --model reid_cCycle_gan \
 --up_scale 8 --gpu 0,1 --no_dropout --batch_size 12 --netG resnet_6blocks --stage 2
 
+
 python train_joint.py --dataroot Market \
 --name Market_reid_SRcCyclegan_upscale_8_resnet_6blocks_stage0 \
 --SR_name Market_SRcCyclegan_upscale_8_resnet_6blocks \
 --reid_name SRcCyclegan_Market_Reid_upscale_8_resnet_6blocks \
 --dataset_mode Market --model reid_SRcCycle_gan \
---up_scale 8 --gpu 0,7 --no_dropout --batch_size 12 --netG resnet_6blocks --stage 0
+--up_scale 8 --gpu 6,7 --no_dropout --batch_size 12 --netG resnet_6blocks --stage 0
 python train_joint.py --dataroot Market \
 --name Market_reid_attr_SRcCyclegan_upscale_8_resnet_6blocks_stage2 \
 --SR_name Market_SRcCyclegan_upscale_8_resnet_6blocks \
@@ -108,11 +121,11 @@ python train_joint.py --dataroot Market \
 --up_scale 8 --gpu 0,7 --no_dropout --batch_size 12 --netG resnet_6blocks --stage 0
 
 python train_joint.py --dataroot Market \
---name Market_reid_cyclegan_upscale_8_resnet_6blocks_stage0_lr_0.1 \
+--name Market_reid_cyclegan_upscale_8_resnet_6blocks_stage0 \
 --SR_name Market_cyclegan_upscale_8 \
 --reid_name cyclegan_Market_Reid_upscale_8 \
 --dataset_mode Market --model reid_cycle_gan \
---up_scale 8 --gpu 2,3 --no_dropout --batch_size 12 --netG resnet_6blocks --stage 0
+--up_scale 8 --gpu 0,1 --no_dropout --batch_size 12 --netG resnet_6blocks --stage 0
 
 python train_joint.py --dataroot Market \
 --name Market_reid_SRcCyclegan_upscale_8_resnet_6blocks_stage2 \
@@ -122,7 +135,7 @@ python train_joint.py --dataroot Market \
 --up_scale 8 --gpu 0,1 --no_dropout --batch_size 12 --netG resnet_6blocks --stage 2
 
 python train_joint.py --dataroot Market \
---name Market_reid_cyclegan_upscale_8_resnet_6blocks_stage2 \
+--name Market_reid_cyclegan_upscale_8_resnet_6blocks_stage2 \   ``
 --SR_name Market_cyclegan_upscale_8 \
 --reid_name cyclegan_Market_Reid_upscale_8 \
 --dataset_mode Market --model reid_cycle_gan \

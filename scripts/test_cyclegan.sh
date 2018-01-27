@@ -24,6 +24,8 @@ python test_SR.py --dataroot DukeMTMC-reID --name Duke_paired_cCyclegan_upscale_
 python test_SR.py --dataroot DukeMTMC-reID --name Duke_SRcCyclegan_upscale_8_resnet_6blocks --dataset_mode single_Duke --model test_SR --gpu 3 --no_dropout --save_phase test --up_scale 8 --netG resnet_6blocks
 python test_SR.py --dataroot DukeMTMC-reID --name Duke_SRcCyclegan_upscale_8_resnet_6blocks --dataset_mode Duke --model test_SR --gpu 3 --no_dropout --save_phase train --up_scale 8 --netG resnet_6blocks
 
+python test_SR.py --dataroot DukeMTMC-reID --name Duke_cyclegan_upscale_8_resnet_6blocks_GT_A --dataset_mode single_Duke --model test_SR --gpu 5 --no_dropout --save_phase test --up_scale 8 --netG resnet_6blocks
+python test_SR.py --dataroot DukeMTMC-reID --name Duke_cyclegan_upscale_8_resnet_6blocks_GT_A --dataset_mode Duke --model test_SR --gpu 5 --no_dropout --save_phase train --up_scale 8 --netG resnet_6blocks
 
 python test_SR.py --dataroot Market --name Market_SRcCyclegan --dataset_mode single_Market --model test_SR --gpu 6 --no_dropout
 python test_SR.py --dataroot Market --name Market_SRcCyclegan --dataset_mode Market --model test_SR --gpu 6 --no_dropout --save_phase train

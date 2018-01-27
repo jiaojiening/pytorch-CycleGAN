@@ -5,9 +5,9 @@ from .base_model import BaseModel
 from . import networks_reid
 
 
-class ReidModel(BaseModel):
+class LRReidModel(BaseModel):
     def name(self):
-        return 'ReidModel'
+        return 'LRReidModel'
 
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
@@ -27,16 +27,12 @@ class ReidModel(BaseModel):
         BaseModel.initialize(self, opt)
 
         # specify the training losses you want to print out. The program will call base_model.get_current_losses
-        # self.loss_names = ['reid', 'reid_real_A', 'reid_real_B']
         self.loss_names = ['reid']
         # specify the images you want to save/display. The program will call base_model.get_current_visuals
-        if self.isTrain:
-            visual_names_A = ['real_A']
-            visual_names_B = ['real_B']
+        visual_names_A = ['img']
+        visual_names_B = []
 
-            self.visual_names = visual_names_A + visual_names_B
-        else:
-            self.visual_names=['img']
+        self.visual_names = visual_names_A + visual_names_B
         # specify the models you want to save to the disk. The program will call base_model.save_networks and base_model.load_networks
         self.model_names = ['D_reid']
 
@@ -66,28 +62,7 @@ class ReidModel(BaseModel):
             self.optimizer_reid.append(self.optimizer_D_reid)
 
     def set_input(self, input):
-        if self.isTrain:
-            self.real_A = input['A'].to(self.device)   # high-resolution
-            # self.GT_A = input['GT_A'].to(self.device)  # low-resolution
-
-            # train on the normal resolution B set if NR
-            self.real_B = input['B' if not self.opt.NR else 'GT_B'].to(self.device)
-
-            # get the id label for person reid
-            self.A_label = input['A_label'].to(self.device)
-            self.B_label = input['B_label'].to(self.device)
-
-            # self.A_paths = input['A_paths']
-            # self.B_paths = input['B_paths']
-
-        else:
-            if self.opt.dataset_type == 'B'and self.opt.NR:
-                # if NR, dataset B use the high-resolution GT_img
-                # print('test')
-                self.img = input['GT_img'].to(self.device)
-            else:
-                self.img = input['img'].to(self.device)
-            # print(self.img.size())
+            self.img = input['img'].to(self.device)
             self.img_label = input['img_label'].to(self.device)
             self.image_paths = input['img_paths']  # list
 
@@ -98,16 +73,8 @@ class ReidModel(BaseModel):
 
             # training: 1 * num_classes prediction vector,
             # test: 1 * 2048 feature vector
-            self.pred_real_A = self.netD_reid(self.real_A)  # A_label HR
-            self.pred_real_B = self.netD_reid(self.real_B)  # B_label LR
-            # self.pred_GT_A = self.netD_reid(self.GT_A)  # A_label LR
+            self.pred_img = self.netD_reid(self.img)
 
-            # self.imags = torch.cat([self.real_A, self.real_B], 0)
-            # self.labels = torch.cat([self.A_label, self.B_label], 0)
-            # self.pred_imgs = self.netD_reid(self.imags)
-            # self.imags = torch.cat([self.real_A, self.real_B, self.GT_A], 0)
-            # self.labels = torch.cat([self.A_label, self.B_label, self.A_label], 0)
-            # self.pred_imgs = self.netD_reid(self.imags)
 
     def extract_features(self):
         # Remove the final fc layer and classifier layer
@@ -127,27 +94,11 @@ class ReidModel(BaseModel):
         f = f.data.cpu()
         self.features = torch.cat((self.features, f), 0)
 
+
     def backward_G(self):
-        _, pred_label_real_A = torch.max(self.pred_real_A, 1)
-        _, pred_label_real_B = torch.max(self.pred_real_B, 1)
-        self.corrects_A += float(torch.sum(pred_label_real_A == self.A_label))
-        self.corrects_B += float(torch.sum(pred_label_real_B == self.B_label))
-
-        # add reid loss to update the G_B(LR-HR)
-        self.loss_reid_real_A = self.criterionReid(self.pred_real_A, self.A_label)
-        self.loss_reid_real_B = self.criterionReid(self.pred_real_B, self.B_label)
-        self.loss_reid = self.loss_reid_real_A + self.loss_reid_real_B
-        # self.loss_reid = (self.loss_reid_real_A + self.loss_reid_real_B)/2.0
-        #
-        # _, pred_label_GT_A = torch.max(self.pred_GT_A, 1)
-        # self.corrects_GT_A += float(torch.sum(pred_label_GT_A == self.A_label))
-        # self.loss_reid_GT_A = self.criterionReid(self.pred_GT_A, self.A_label)
-        # self.loss_reid = self.loss_reid_real_A + self.loss_reid_real_B + self.loss_reid_GT_A
-
-        # _, pred_label_imgs = torch.max(self.pred_imgs, 1)
-        # self.corrects += float(torch.sum(pred_label_imgs == self.labels))
-        # self.loss_reid = self.criterionReid(self.pred_imgs, self.labels)
-        # print(self.loss_reid)
+        _, pred_label_img = torch.max(self.pred_img, 1)
+        self.corrects += float(torch.sum(pred_label_img == self.img_label))
+        self.loss_reid = self.criterionReid(self.pred_img, self.img_label)
 
         self.loss_G = self.loss_reid
         self.loss_G.backward()

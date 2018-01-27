@@ -5,6 +5,7 @@ from models import create_model
 from util.visualizer import save_images
 from util import html
 import scipy.io
+from util.visualizer import Visualizer
 
 # print("test!")
 # import pydevd
@@ -36,6 +37,11 @@ if __name__ == '__main__':
     opt.serial_batches = True  # no shuffle
     opt.no_flip = True    # no flip
     opt.display_id = -1   # no visdom display
+    # opt.display_id = 1   # visdom display
+    opt.display_ncols = 4
+    opt.display_server = "http://localhost"
+    opt.display_port = 8097
+    opt.display_env = 'main'
 
     # create query(low-resolution) set
     opt.dataset_type = 'B'
@@ -45,6 +51,7 @@ if __name__ == '__main__':
     # create and load the model
     model = create_model(opt)
     model.setup(opt)
+    visualizer = Visualizer(opt)
 
     total_cams = []
     total_labels = []
@@ -57,8 +64,11 @@ if __name__ == '__main__':
         total_cams.extend(camera_id)
         total_labels.extend(labels)
 
-        if i % 100 == 0:
-            print('processing (%04d)-th image... %s' % (i, img_path))
+        visualizer.reset()
+        if i % 1 == 0:
+            print('processing (%04d)-th image... %s' % (i, img_path[0]))
+            save_result = True
+            visualizer.display_current_results(model.get_current_visuals(), i, save_result)
 
     query_feature = model.get_features()
     query_cam = total_cams
@@ -80,8 +90,11 @@ if __name__ == '__main__':
         total_cams.extend(camera_id)
         total_labels.extend(labels)
 
-        if i % 100 == 0:
-            print('processing (%04d)-th image... %s' % (i, img_path))
+        visualizer.reset()
+        if i % 10 == 0:
+            print('processing (%04d)-th image... %s' % (i, img_path[0]))
+            save_result = True
+            visualizer.display_current_results(model.get_current_visuals(), i, save_result)
 
     gallery_feature = model.get_features()
     gallery_cam = total_cams

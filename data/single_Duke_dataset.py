@@ -84,14 +84,14 @@ class SingleDukeDataset(BaseDataset):
 
         if self.dataset_type == 'A':
             # high-resolution image
-            img = self.transform(img)
+            img = self.transform(img)       # high-resolution image
             GT_img = self.transform_LR(img) # ground-truth low-resolution image
             img = self.transform_norm(img)
             GT_img = self.transform_norm(GT_img)
         else:
             # low-resolution image
             GT_img = self.transform(img)    # ground-truth high-resolution image
-            img = self.transform_LR(GT_img)
+            img = self.transform_LR(GT_img) # low-resolution image
             GT_img = self.transform_norm(GT_img)
             img = self.transform_norm(img)
 
