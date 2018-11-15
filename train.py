@@ -4,6 +4,10 @@ from data import CreateDataLoader
 from models import create_model
 from util.visualizer import Visualizer
 
+import pydevd
+pydevd.settrace('222.200.182.82', port=22, stdoutToServer=True, stderrToServer=True)
+print("test!")
+
 if __name__ == '__main__':
     opt = TrainOptions().parse()
     data_loader = CreateDataLoader(opt)
