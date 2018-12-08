@@ -27,11 +27,28 @@ class BaseModel():
         self.model_names = []
         self.visual_names = []
         self.image_paths = []
+        self.psnr = 0
+        self.bicubic_psnr = 0
+        self.ssim = 0
+        self.bicubic_ssim = 0
+        self.corrects_A = 0
+        self.corrects_B = 0
+        self.features = torch.FloatTensor()
+
 
     def set_input(self, input):
         self.input = input
 
     def forward(self):
+        pass
+
+    def extract_features(self):
+        pass
+
+    def psnr_eval(self):
+        pass
+
+    def ssim_eval(self):
         pass
 
     # load and print networks; create schedulers
@@ -55,6 +72,31 @@ class BaseModel():
     def test(self):
         with torch.no_grad():
             self.forward()
+            self.psnr_eval()
+            self.ssim_eval()
+
+    def test_reid(self):
+        with torch.no_grad():
+            self.extract_features()
+
+    def get_features(self):
+        features = self.features
+        self.features = torch.FloatTensor()
+        return features
+
+    def get_psnr(self):
+        return self.bicubic_psnr, self.psnr
+
+    def get_ssim(self):
+        return self.bicubic_ssim, self.ssim
+
+    # update learning rate (called once every epoch)
+    def compute_corrects(self):
+        corrects_A = self.corrects_A
+        corrects_B = self.corrects_B
+        self.corrects_A = 0
+        self.corrects_B = 0
+        return corrects_A, corrects_B
 
     # get image paths
     def get_image_paths(self):
@@ -69,6 +111,13 @@ class BaseModel():
             scheduler.step()
         lr = self.optimizers[0].param_groups[0]['lr']
         print('learning rate = %.7f' % lr)
+
+    # update reid learning rate (called once every epoch)
+    def update_reid_learning_rate(self):
+        # update the reid learing rate scheduler
+        self.exp_lr_scheduler.step()
+        reid_lr = self.optimizer_D_reid.param_groups[0]['lr']
+        print('reid learning rate = %.7f' % reid_lr)
 
     # return visualization images. train.py will display these images, and save the images to a html
     def get_current_visuals(self):
@@ -96,7 +145,13 @@ class BaseModel():
                 net = getattr(self, 'net' + name)
 
                 if len(self.gpu_ids) > 0 and torch.cuda.is_available():
-                    torch.save(net.module.cpu().state_dict(), save_path)
+                    # if name == 'D_reid':
+                    #     torch.save(net.cpu().state_dict(), save_path)
+                    # else:
+                    #     torch.save(net.module.cpu().state_dict(), save_path)
+                    if isinstance(net, torch.nn.DataParallel):
+                        net = net.module
+                    torch.save(net.cpu().state_dict(), save_path)
                     net.cuda(self.gpu_ids[0])
                 else:
                     torch.save(net.cpu().state_dict(), save_path)

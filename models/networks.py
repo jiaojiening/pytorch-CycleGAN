@@ -3,6 +3,8 @@ import torch.nn as nn
 from torch.nn import init
 import functools
 from torch.optim import lr_scheduler
+from math import log10
+import pytorch_ssim
 
 ###############################################################################
 # Helper Functions
@@ -89,7 +91,7 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
 
 
 def define_D(input_nc, ndf, netD,
-             n_layers_D=3, norm='batch', use_sigmoid=False, init_type='normal', init_gain=0.02, gpu_ids=[]):
+             n_layers_D=3, norm='batch', use_sigmoid=False, init_type='normal', init_gain=0.02, gpu_ids=[], num_attr=18):
     net = None
     norm_layer = get_norm_layer(norm_type=norm)
 
@@ -97,11 +99,28 @@ def define_D(input_nc, ndf, netD,
         net = NLayerDiscriminator(input_nc, ndf, n_layers=3, norm_layer=norm_layer, use_sigmoid=use_sigmoid)
     elif netD == 'n_layers':
         net = NLayerDiscriminator(input_nc, ndf, n_layers_D, norm_layer=norm_layer, use_sigmoid=use_sigmoid)
+    elif netD == 'conditional_basic':
+        net = condit_NLayerDiscriminator(input_nc, ndf, n_layers_D, num_attr, norm_layer=norm_layer, use_sigmoid=use_sigmoid)
     elif netD == 'pixel':
         net = PixelDiscriminator(input_nc, ndf, norm_layer=norm_layer, use_sigmoid=use_sigmoid)
     else:
         raise NotImplementedError('Discriminator model name [%s] is not recognized' % net)
     return init_net(net, init_type, init_gain, gpu_ids)
+
+
+def compute_psnr(target, prediction):
+    mse_loss = nn.MSELoss()
+    mse = mse_loss(target, prediction)
+    # print(mse.item())
+    psnr = 10 * log10(1.0 / mse.item())
+    return psnr
+
+
+def compute_ssim(target, prediction):
+    # print(pytorch_ssim.ssim(target, prediction))
+    ssim_loss = pytorch_ssim.SSIM(window_size = 11)
+    ssim = ssim_loss(target, prediction)
+    return ssim
 
 
 ##############################################################################
@@ -308,6 +327,78 @@ class UnetSkipConnectionBlock(nn.Module):
             return self.model(x)
         else:
             return torch.cat([x, self.model(x)], 1)
+
+
+class condit_NLayerDiscriminator(nn.Module):
+    def __init__(self, input_nc, ndf=64, n_layers=3, num_attr=18, norm_layer=nn.BatchNorm2d, use_sigmoid=False):
+        super(condit_NLayerDiscriminator, self).__init__()
+        if type(norm_layer) == functools.partial:
+            use_bias = norm_layer.func == nn.InstanceNorm2d
+        else:
+            use_bias = norm_layer == nn.InstanceNorm2d
+
+        kw = 4
+        padw = 1
+        # output of Conv1: 64x64x64
+        Conv1 = [
+            nn.Conv2d(input_nc, ndf, kernel_size=kw, stride=2, padding=padw),
+            nn.LeakyReLU(0.2, True)
+        ]
+        self.Conv1 = nn.Sequential(*Conv1)
+
+        self.num_attr = num_attr
+
+        sequence = []
+        nf_mult = 1
+        nf_mult_prev = 1
+        for n in range(1, n_layers):
+            nf_mult_prev = nf_mult
+            nf_mult = min(2**n, 8)
+            # add the attributes after Conv1
+            if n == 1:
+                sequence += [
+                    nn.Conv2d(ndf * nf_mult_prev + num_attr, ndf * nf_mult,
+                              kernel_size=kw, stride=2, padding=padw, bias=use_bias),
+                    norm_layer(ndf * nf_mult),
+                    nn.LeakyReLU(0.2, True)
+                ]
+            else:
+                sequence += [
+                    nn.Conv2d(ndf * nf_mult_prev, ndf * nf_mult,
+                              kernel_size=kw, stride=2, padding=padw, bias=use_bias),
+                    norm_layer(ndf * nf_mult),
+                    nn.LeakyReLU(0.2, True)
+                ]
+
+        nf_mult_prev = nf_mult
+        nf_mult = min(2**n_layers, 8)
+        sequence += [
+            nn.Conv2d(ndf * nf_mult_prev, ndf * nf_mult,
+                      kernel_size=kw, stride=1, padding=padw, bias=use_bias),
+            norm_layer(ndf * nf_mult),
+            nn.LeakyReLU(0.2, True)
+        ]
+
+        sequence += [nn.Conv2d(ndf * nf_mult, 1, kernel_size=kw, stride=1, padding=padw)]
+
+        if use_sigmoid:
+            sequence += [nn.Sigmoid()]
+
+        self.model = nn.Sequential(*sequence)
+
+    def forward(self, input, input_attr):
+        Conv1_out = self.Conv1(input)
+        # print(Conv1_out.size())      # [1, 64, 128, 64]
+
+        input_attr = torch.unsqueeze(input_attr, 2)  # add a new axis
+        # input_attr = input_attr.repeat(1, 1, 64 * 64)
+        # input_attr = torch.reshape(input_attr, (-1, self.num_attr, 64, 64))
+        input_attr = input_attr.repeat(1, 1, Conv1_out.size()[2] * Conv1_out.size()[3])
+        input_attr = torch.reshape(input_attr, (-1, self.num_attr, Conv1_out.size()[2], Conv1_out.size()[3]))
+        input_attr = input_attr.float()
+
+        comb_input = torch.cat([input_attr, Conv1_out], 1)
+        return self.model(comb_input)
 
 
 # Defines the PatchGAN discriminator with the specified arguments.

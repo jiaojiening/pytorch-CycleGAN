@@ -34,6 +34,21 @@ def make_dataset(dir):
     return images
 
 
+def make_reid_dataset(dir):
+    images = []
+    labels = []
+    assert os.path.isdir(dir), '%s is not a valid directory' % dir
+
+    for root, _, fnames in sorted(os.walk(dir)):
+        for fname in fnames:
+            if is_image_file(fname):
+                path = os.path.join(root, fname)
+                images.append(path)
+                ID = fname.split('_')
+                labels.append(int(ID[0]))
+    return images, labels
+
+
 def default_loader(path):
     return Image.open(path).convert('RGB')
 
