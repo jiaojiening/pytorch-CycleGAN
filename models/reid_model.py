@@ -67,6 +67,8 @@ class ReidModel(BaseModel):
             # Decay learning rate by a factor of 0.1 every 40 epochs
             self.exp_lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer_D_reid,
                                                                     step_size=40, gamma=0.1)
+            # self.exp_lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer_D_reid,
+                                                                    # step_size=20, gamma=0.1)
             self.optimizers = []
 
     def set_input(self, input):

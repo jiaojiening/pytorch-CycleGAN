@@ -32,7 +32,7 @@ if __name__ == '__main__':
     opt = TestOptions().parse()
     # hard-code some parameters for test
     opt.num_threads = 1   # test code only supports num_threads = 1
-    opt.batch_size = 50    # test code only supports batch_size = 1
+    opt.batch_size = 16
     opt.serial_batches = True  # no shuffle
     opt.no_flip = True    # no flip
     opt.display_id = -1   # no visdom display
@@ -46,13 +46,22 @@ if __name__ == '__main__':
     model = create_model(opt)
     model.setup(opt)
 
+    # create a website
+    web_dir = os.path.join(opt.results_dir, opt.name, '%s_%s' % (opt.phase, opt.epoch))
+    webpage = html.HTML(web_dir, 'Experiment = %s, Phase = %s, Epoch = %s' % (opt.name, opt.phase, opt.epoch))
+
     total_cams = []
     total_labels = []
     for i, data in enumerate(dataset):
         model.set_input(data)
+        model.SR_B()
         model.test_reid()    # compute the forward()
 
+        visuals = model.get_current_visuals()
         img_path = model.get_image_paths()
+        # if i < opt.num_test:
+        if i < 10:
+            save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize)
         camera_id, labels = get_id(img_path)
         total_cams.extend(camera_id)
         total_labels.extend(labels)
@@ -60,6 +69,7 @@ if __name__ == '__main__':
         if i % 100 == 0:
             print('processing (%04d)-th image... %s' % (i, img_path))
 
+    webpage.save()
     query_feature = model.get_features()
     query_cam = total_cams
     query_label = total_labels

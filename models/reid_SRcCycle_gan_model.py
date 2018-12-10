@@ -20,7 +20,7 @@ class ReidSRcCycleGANModel(BaseModel):
                                 help='weight for cycle loss (B -> A -> B)')
             parser.add_argument('--lambda_identity', type=float, default=0.5, help='use identity mapping. Setting lambda_identity other than 0 has an effect of scaling the weight of the identity mapping loss. For example, if the weight of the identity loss should be 10 times smaller than the weight of the reconstruction loss, please set lambda_identity = 0.1')
             # reid parameters
-            parser.add_argument('--num_classes', type=int, default=702, help='The total num of the id classes ')
+            # parser.add_argument('--num_classes', type=int, default=702, help='The total num of the id classes ')
             parser.add_argument('--droprate', type=float, default=0.5, help='the dropout ratio in reid model')
             parser.add_argument('--reid_lr', type=float, default=0.1, help='initial reid learning rate for adam')
         return parser
@@ -98,6 +98,8 @@ class ReidSRcCycleGANModel(BaseModel):
             # Decay learning rate by a factor of 0.1 every 40 epochs
             self.exp_lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer_D_reid,
                                                                     step_size=40, gamma=0.1)
+            # self.exp_lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer_D_reid,
+            #                                                         step_size=20, gamma=0.1)
             self.optimizers = []
             self.optimizers.append(self.optimizer_G)
             self.optimizers.append(self.optimizer_D)

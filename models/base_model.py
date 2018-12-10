@@ -45,6 +45,9 @@ class BaseModel():
     def extract_features(self):
         pass
 
+    def SR_B(self):
+        pass
+
     def psnr_eval(self):
         pass
 
@@ -74,6 +77,10 @@ class BaseModel():
             self.forward()
             self.psnr_eval()
             self.ssim_eval()
+
+    def test_SR(self):
+        with torch.no_grad():
+            self.SR_B()
 
     def test_reid(self):
         with torch.no_grad():

@@ -63,7 +63,17 @@ def compute_mAP(index, good_index, junk_index):
 # pydevd.settrace('172.18.218.190', port=10000, stdoutToServer=True, stderrToServer=True)
 # print("test!")
 
-result = scipy.io.loadmat('Duke_base_result.mat')
+# reid_results_dir = './reid_results/'
+# result = scipy.io.loadmat(os.path.join(reid_results_dir,'Duke_base_result.mat'))
+from options.test_options import TestOptions
+opt = TestOptions().parse()
+web_dir = os.path.join(opt.results_dir, opt.name, '%s_%s' % (opt.phase, opt.epoch))
+if not os.path.exists(web_dir):
+    os.makedirs(web_dir)
+file_path = os.path.join(web_dir, 'reid_result.mat')
+print(file_path)
+result = scipy.io.loadmat(file_path)
+
 query_feature = result['query_f']
 query_cam = result['query_cam'][0]
 query_label = result['query_label'][0]

@@ -15,3 +15,9 @@ python test_reid.py --dataroot DukeMTMC-reID --name Duke_Reid --dataset_mode sin
 
 
 python test_reid.py --dataroot Market --name Market_Reid --dataset_mode single_Market --model reid --phase test --gpu 5 --no_dropout --batch_size 50
+
+python test_reid.py --dataroot Market --name Market_Reid_16 --dataset_mode single_Market --model reid --phase test --gpu 5 --no_dropout
+
+python test_reid.py --dataroot Market --name Market_Reid_16_step_20 --dataset_mode single_Market --model reid --phase test --gpu 5 --no_dropout
+
+python evaluate_reid.py --dataroot Market --name Market_Reid_16
