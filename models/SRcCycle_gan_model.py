@@ -34,11 +34,17 @@ class SRcCycleGANModel(BaseModel):
             visual_names_B.append('idt_B')
 
         self.visual_names = visual_names_A + visual_names_B
+
+        # only need the SR fake_A in test
+        if not self.isTrain:
+            self.visual_names = ['real_B', 'fake_A', 'GT_B']
+
         # specify the models you want to save to the disk. The program will call base_model.save_networks and base_model.load_networks
         if self.isTrain:
             self.model_names = ['G_A', 'G_B', 'D_A', 'D_B']
         else:  # during test time, only load Gs
-            self.model_names = ['G_A', 'G_B']
+            # self.model_names = ['G_A', 'G_B']
+            self.model_names = ['G_B']
 
         self.num_attr = opt.num_attr
         # self.resize_h = opt.resize_h
@@ -86,7 +92,9 @@ class SRcCycleGANModel(BaseModel):
         AtoB = self.opt.direction == 'AtoB'
         self.real_A = input['A' if AtoB else 'B'].to(self.device)
         self.real_B = input['B' if AtoB else 'A'].to(self.device)
-        self.image_paths = input['A_paths' if AtoB else 'B_paths']
+        # self.image_paths = input['A_paths' if AtoB else 'B_paths']
+        # need the B_paths
+        self.image_paths = input['B_paths']
         # add the conditional attributes vector
         self.A_real_attr = input['A_real_attr'].to(self.device)
         self.A_fake_attr = input['A_fake_attr'].to(self.device)
@@ -132,6 +140,15 @@ class SRcCycleGANModel(BaseModel):
         self.comb_input_real = torch.cat([B_real_attr, self.real_B], 1)
         self.fake_A = self.netG_B(self.comb_input_real)
         self.rec_B = self.netG_A(self.fake_A)
+
+    def SR_B(self):
+        B_real_attr = torch.unsqueeze(self.B_real_attr, 2)  # add a new axis
+        B_real_attr = B_real_attr.repeat(1, 1, self.real_B.size()[2] * self.real_B.size()[3])
+        B_real_attr = torch.reshape(B_real_attr, (-1, self.num_attr, self.real_B.size()[2], self.real_B.size()[3]))
+        B_real_attr = B_real_attr.float()
+
+        self.comb_input_real = torch.cat([B_real_attr, self.real_B], 1)
+        self.fake_A = self.netG_B(self.comb_input_real)
 
     def psnr_eval(self):
         # compute the PSNR for the test

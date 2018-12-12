@@ -23,7 +23,8 @@ class MarketDataset(BaseDataset):
 
     def initialize(self, opt):
         self.opt = opt
-        self.dataPath = '/home/share/jiening/dgd_datasets/raw'
+        # self.dataPath = '/home/share/jiening/dgd_datasets/raw'
+        self.dataPath = '/home/weixiong/jiening'
         # self.root = opt.dataroot    # opt.dataroot = Market-1501-v15.09.15
         if opt.dataroot == 'Market':
             self.root = 'Market-1501-v15.09.15'

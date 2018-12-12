@@ -13,7 +13,7 @@ class SingleMarketDataset(BaseDataset):
     def modify_commandline_options(parser, is_train):
         # parser.add_argument('--dataset_type', type=str, default='A', help='the A set')
         parser.add_argument('--up_scale', type=int, default=4, help='up_scale of the image super-resolution')
-        parser.add_argument('--num_attr', type=int, default=23, help='the number of the attributes')
+        parser.add_argument('--num_attr', type=int, default=27, help='the number of the attributes')
         parser.add_argument('--resize_h', type=int, default=256, help='the size of the height should be resized')
         parser.add_argument('--resize_w', type=int, default=128, help='the size of the width should be resized')
         parser.add_argument('--num_classes', type=int, default=751, help='The total num of the id classes ')
@@ -87,9 +87,11 @@ class SingleMarketDataset(BaseDataset):
         img = Image.open(img_path).convert('RGB')
         # img = self.transform_A(img)
 
+        img_label = self.img_labels[index]
         if self.dataset_type == 'A':
             img = self.transform_A(img)
-            img_attr = []
+            # do not need the attributes
+            img_attr = img_label
         else:
             # low-resolution image
             img = self.transform_B(img)
@@ -106,7 +108,6 @@ class SingleMarketDataset(BaseDataset):
             tmp = img[0, ...] * 0.299 + img[1, ...] * 0.587 + img[2, ...] * 0.114
             img = tmp.unsqueeze(0)
 
-        img_label = self.img_labels[index]
         return {'img': img, 'img_paths': img_path,
                 'img_attr': img_attr,
                 'img_label': img_label}

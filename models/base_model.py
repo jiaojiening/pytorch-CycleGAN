@@ -74,7 +74,8 @@ class BaseModel():
     # intermediate steps for backprop
     def test(self):
         with torch.no_grad():
-            self.forward()
+            # self.forward()
+            self.SR_B()
             self.psnr_eval()
             self.ssim_eval()
 
