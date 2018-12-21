@@ -89,8 +89,12 @@ class ft_net(nn.Module):
         x = self.model.avgpool(x)
         # TODO: it is wrong when the batch_size = 1
         x = x.view(x.size(0), x.size(1))
+        self.feature = x
         x = self.classifier(x)
         return x
+
+    def get_feature(self):
+        return self.feature
 
 
 # Define the DenseNet121-based Model
