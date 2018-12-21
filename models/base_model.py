@@ -21,6 +21,8 @@ class BaseModel():
         self.isTrain = opt.isTrain
         self.device = torch.device('cuda:{}'.format(self.gpu_ids[0])) if self.gpu_ids else torch.device('cpu')
         self.save_dir = os.path.join(opt.checkpoints_dir, opt.name)
+        self.save_dir_SR = os.path.join(opt.checkpoints_dir, opt.SR_name)
+        self.save_dir_reid = os.path.join(opt.checkpoints_dir, opt.reid_name)
         if opt.resize_or_crop != 'scale_width':
             torch.backends.cudnn.benchmark = True
         self.loss_names = []
@@ -63,6 +65,17 @@ class BaseModel():
             self.load_networks(load_suffix)
         self.print_networks(opt.verbose)
 
+    # load and print networks; create schedulers
+    # load both the SRcCycle_gan and reid networks
+    def setup_joint(self, opt, parser=None):
+        if self.isTrain:
+            self.schedulers = [networks.get_scheduler(optimizer, opt) for optimizer in self.optimizers]
+        if not self.isTrain or opt.continue_train:
+            load_suffix = 'iter_%d' % opt.load_iter if opt.load_iter > 0 else opt.epoch
+            self.load_SR_networks(load_suffix)
+            self.load_reid_networks(load_suffix)
+        self.print_networks(opt.verbose)
+
     # make models eval mode during test time
     def eval(self):
         for name in self.model_names:
@@ -82,6 +95,8 @@ class BaseModel():
     def test_SR(self):
         with torch.no_grad():
             self.SR_B()
+            self.psnr_eval()
+            self.ssim_eval()
 
     def test_reid(self):
         with torch.no_grad():
@@ -183,6 +198,48 @@ class BaseModel():
             if isinstance(name, str):
                 load_filename = '%s_net_%s.pth' % (epoch, name)
                 load_path = os.path.join(self.save_dir, load_filename)
+                net = getattr(self, 'net' + name)
+                if isinstance(net, torch.nn.DataParallel):
+                    net = net.module
+                print('loading the model from %s' % load_path)
+                # if you are using PyTorch newer than 0.4 (e.g., built from
+                # GitHub source), you can remove str() on self.device
+                state_dict = torch.load(load_path, map_location=str(self.device))
+                if hasattr(state_dict, '_metadata'):
+                    del state_dict._metadata
+
+                # patch InstanceNorm checkpoints prior to 0.4
+                for key in list(state_dict.keys()):  # need to copy keys here because we mutate in loop
+                    self.__patch_instance_norm_state_dict(state_dict, net, key.split('.'))
+                net.load_state_dict(state_dict)
+
+    def load_SR_networks(self, epoch):
+        for name in self.model_names:
+            if name == 'D_reid':
+                continue
+            if isinstance(name, str):
+                load_filename = '%s_net_%s.pth' % (epoch, name)
+                load_path = os.path.join(self.save_dir_SR, load_filename)
+                net = getattr(self, 'net' + name)
+                if isinstance(net, torch.nn.DataParallel):
+                    net = net.module
+                print('loading the model from %s' % load_path)
+                # if you are using PyTorch newer than 0.4 (e.g., built from
+                # GitHub source), you can remove str() on self.device
+                state_dict = torch.load(load_path, map_location=str(self.device))
+                if hasattr(state_dict, '_metadata'):
+                    del state_dict._metadata
+
+                # patch InstanceNorm checkpoints prior to 0.4
+                for key in list(state_dict.keys()):  # need to copy keys here because we mutate in loop
+                    self.__patch_instance_norm_state_dict(state_dict, net, key.split('.'))
+                net.load_state_dict(state_dict)
+
+    def load_reid_networks(self, epoch):
+        for name in ['D_reid']:
+            if isinstance(name, str):
+                load_filename = '%s_net_%s.pth' % (epoch, name)
+                load_path = os.path.join(self.save_dir_reid, load_filename)
                 net = getattr(self, 'net' + name)
                 if isinstance(net, torch.nn.DataParallel):
                     net = net.module
