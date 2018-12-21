@@ -25,6 +25,10 @@ class BaseOptions():
         parser.add_argument('--n_layers_D', type=int, default=3, help='only used if netD==n_layers')
         parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
         parser.add_argument('--name', type=str, default='experiment_name', help='name of the experiment. It decides where to store samples and models')
+        parser.add_argument('--reid_name', type=str, default='reid_experiment_name',
+                            help='name of the experiment. It decides where to store samples and models')
+        parser.add_argument('--SR_name', type=str, default='reid_experiment_name',
+                            help='name of the experiment. It decides where to store samples and models')
         parser.add_argument('--dataset_mode', type=str, default='unaligned', help='chooses how datasets are loaded. [unaligned | aligned | single]')
         parser.add_argument('--model', type=str, default='cycle_gan', help='chooses which model to use. cycle_gan, pix2pix, test')
         parser.add_argument('--direction', type=str, default='AtoB', help='AtoB or BtoA')
@@ -42,6 +46,7 @@ class BaseOptions():
         parser.add_argument('--init_gain', type=float, default=0.02, help='scaling factor for normal, xavier and orthogonal.')
         parser.add_argument('--verbose', action='store_true', help='if specified, print more debugging information')
         parser.add_argument('--suffix', default='', type=str, help='customized suffix: opt.name = opt.name + suffix: e.g., {model}_{netG}_size{loadSize}')
+        parser.add_argument('--save_phase', type=str, default='test', help='train, val, test, etc')
         self.initialized = True
         return parser
 
