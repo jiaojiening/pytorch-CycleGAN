@@ -28,7 +28,7 @@ class cCycleGANModel(BaseModel):
         self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B']
         # specify the images you want to save/display. The program will call base_model.get_current_visuals
         visual_names_A = ['real_A', 'fake_B', 'rec_A']
-        visual_names_B = ['real_B', 'fake_A', 'rec_B']
+        visual_names_B = ['real_B', 'fake_A', 'rec_B', 'GT_B']
         if self.isTrain and self.opt.lambda_identity > 0.0:
             visual_names_A.append('idt_A')
             visual_names_B.append('idt_B')
@@ -40,13 +40,14 @@ class cCycleGANModel(BaseModel):
         else:  # during test time, only load Gs
             self.model_names = ['G_A', 'G_B']
 
+        self.num_attr = opt.num_attr
         # load/define networks
         # The naming conversion is different from those used in the paper
         # Code (paper): G_A (G), G_B (F), D_A (D_Y), D_B (D_X)
         self.netG_A = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm,
                                         not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
-        # Input: B(low-resolution) + attributes of A(high-resolution)
-        self.netG_B = networks.define_G(opt.output_nc + 18, opt.input_nc, opt.ngf, opt.netG, opt.norm,
+        # Input: B(low-resolution) + attributes of B(high-resolution)
+        self.netG_B = networks.define_G(opt.output_nc + opt.num_attr, opt.input_nc, opt.ngf, opt.netG, opt.norm,
                                         not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
 
         if self.isTrain:
@@ -56,9 +57,14 @@ class cCycleGANModel(BaseModel):
             # Input1: A(high-resolution) + attribute of A(high-resolution)
             # Input2: fake_A + attribute of A(high-resolution)
             # Input3: A(high-resolution) + random sampled attribute
+            #
+            # Input1: A(high-resolution) + attribute of B(high-resolution)
+            # Input2: fake_A + attribute of B(high-resolution)
+            # Input3: A(high-resolution) + random sampled attribute(B_fake_attr)
             condit_netD = 'conditional_basic'
             self.netD_B = networks.define_D(opt.input_nc, opt.ndf, condit_netD,
-                                            opt.n_layers_D, opt.norm, use_sigmoid, opt.init_type, opt.init_gain, self.gpu_ids)
+                                            opt.n_layers_D, opt.norm, use_sigmoid, opt.init_type, opt.init_gain, self.gpu_ids,
+                                            opt.num_attr)
 
 
         if self.isTrain:
@@ -83,38 +89,42 @@ class cCycleGANModel(BaseModel):
         self.real_B = input['B' if AtoB else 'A'].to(self.device)
         self.image_paths = input['A_paths' if AtoB else 'B_paths']
         # add the conditional attributes vector
-        self.A_real_attr = input['A_real_attr'].to(self.device)
-        self.A_fake_attr = input['A_fake_attr'].to(self.device)
+        # self.A_real_attr = input['A_real_attr'].to(self.device)
+        # self.A_fake_attr = input['A_fake_attr'].to(self.device)
         self.B_real_attr = input['B_real_attr'].to(self.device)
+        self.B_fake_attr = input['B_fake_attr'].to(self.device)
 
         # load the ground-truth high resolution B image to test the SR quality
-        if not self.isTrain:
-            self.GT_B = input['GT_B'].to(self.device)
+        self.GT_B = input['GT_B'].to(self.device)
+        # if not self.isTrain:
+        #     self.GT_B = input['GT_B'].to(self.device)
 
     def forward(self):
         self.fake_B = self.netG_A(self.real_A)
         # self.rec_A = self.netG_B(self.fake_B)
 
-        # print(self.fake_B.size())  # (1,3,128,128)
-        # print(self.A_real_attr.size()) # (1,18)
-        # test = torch.cat([self.A_real_attr, self.A_real_attr], 0)
-        # test = torch.unsqueeze(test, 2)
-        # print(test)
-        # test1 = test.repeat(1,1,2*2)
-        # print(test1)
-        # test2 = torch.reshape(test1, (-1, 18, 2, 2))
-        # print(test2)
+        # A_real_attr = torch.unsqueeze(self.A_real_attr, 2)  # add a new axis
+        # A_real_attr = A_real_attr.repeat(1, 1, self.fake_B.size()[2] * self.fake_B.size()[3])
+        # A_real_attr = torch.reshape(A_real_attr, (-1, self.num_attr, self.fake_B.size()[2], self.fake_B.size()[3]))
+        # A_real_attr = A_real_attr.float()
+        #
+        # self.comb_input_fake = torch.cat([A_real_attr, self.fake_B], 1)
+        # self.rec_A = self.netG_B(self.comb_input_fake)
+        #
+        # # self.fake_A = self.netG_B(self.real_B)
+        # self.comb_input_real = torch.cat([A_real_attr, self.real_B], 1)
+        # self.fake_A = self.netG_B(self.comb_input_real)
+        # self.rec_B = self.netG_A(self.fake_A)
 
-        A_real_attr = torch.unsqueeze(self.A_real_attr, 2)  # add a new axis
-        A_real_attr = A_real_attr.repeat(1, 1, 128 * 128)
-        A_real_attr = torch.reshape(A_real_attr, (-1, 18, 128, 128))
-        A_real_attr = A_real_attr.float()
+        B_real_attr = torch.unsqueeze(self.B_real_attr, 2)  # add a new axis
+        B_real_attr = B_real_attr.repeat(1, 1, self.fake_B.size()[2] * self.fake_B.size()[3])
+        B_real_attr = torch.reshape(B_real_attr, (-1, self.num_attr, self.fake_B.size()[2], self.fake_B.size()[3]))
+        B_real_attr = B_real_attr.float()
 
-        self.comb_input_fake = torch.cat([A_real_attr, self.fake_B], 1)
+        self.comb_input_fake = torch.cat([B_real_attr, self.fake_B], 1)
         self.rec_A = self.netG_B(self.comb_input_fake)
 
-        # self.fake_A = self.netG_B(self.real_B)
-        self.comb_input_real = torch.cat([A_real_attr, self.real_B], 1)
+        self.comb_input_real = torch.cat([B_real_attr, self.real_B], 1)
         self.fake_A = self.netG_B(self.comb_input_real)
         self.rec_B = self.netG_A(self.fake_A)
 
@@ -166,7 +176,8 @@ class cCycleGANModel(BaseModel):
 
     def backward_D_B(self):
         fake_A = self.fake_A_pool.query(self.fake_A)
-        self.loss_D_B = self.backward_D_condit(self.netD_B, self.real_A, fake_A, self.A_real_attr, self.A_fake_attr)
+        # self.loss_D_B = self.backward_D_condit(self.netD_B, self.real_A, fake_A, self.A_real_attr, self.A_fake_attr)
+        self.loss_D_B = self.backward_D_condit(self.netD_B, self.real_A, fake_A, self.B_real_attr, self.B_fake_attr)
 
     def backward_G(self):
         lambda_idt = self.opt.lambda_identity
@@ -178,8 +189,14 @@ class cCycleGANModel(BaseModel):
             self.idt_A = self.netG_A(self.real_B)
             self.loss_idt_A = self.criterionIdt(self.idt_A, self.real_B) * lambda_B * lambda_idt
             # G_B should be identity if real_A is fed.
-            # TODO
-            self.idt_B = self.netG_B(self.real_A)
+
+            B_real_attr = torch.unsqueeze(self.B_real_attr, 2)  # add a new axis
+            B_real_attr = B_real_attr.repeat(1, 1, self.real_A.size()[2] * self.real_A.size()[3])
+            B_real_attr = torch.reshape(B_real_attr, (-1, self.num_attr, self.real_A.size()[2], self.real_A.size()[3]))
+            B_real_attr = B_real_attr.float()
+            self.comb_real_A = torch.cat([B_real_attr, self.real_A], 1)
+
+            self.idt_B = self.netG_B(self.comb_real_A)
             self.loss_idt_B = self.criterionIdt(self.idt_B, self.real_A) * lambda_A * lambda_idt
         else:
             self.loss_idt_A = 0
@@ -188,7 +205,8 @@ class cCycleGANModel(BaseModel):
         # GAN loss D_A(G_A(A))
         self.loss_G_A = self.criterionGAN(self.netD_A(self.fake_B), True)
         # GAN loss D_B(G_B(B))
-        self.loss_G_B = self.criterionGAN(self.netD_B(self.fake_A, self.A_real_attr), True)
+        # self.loss_G_B = self.criterionGAN(self.netD_B(self.fake_A, self.A_real_attr), True)
+        self.loss_G_B = self.criterionGAN(self.netD_B(self.fake_A, self.B_real_attr), True)
         # Forward cycle loss
         self.loss_cycle_A = self.criterionCycle(self.rec_A, self.real_A) * lambda_A
         # Backward cycle loss
