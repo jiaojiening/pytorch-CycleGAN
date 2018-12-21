@@ -23,8 +23,8 @@ class MarketDataset(BaseDataset):
 
     def initialize(self, opt):
         self.opt = opt
-        # self.dataPath = '/home/share/jiening/dgd_datasets/raw'
-        self.dataPath = '/home/weixiong/jiening'
+        self.dataPath = '/home/share/jiening/dgd_datasets/raw'
+        # self.dataPath = '/home/weixiong/jiening'
         # self.root = opt.dataroot    # opt.dataroot = Market-1501-v15.09.15
         if opt.dataroot == 'Market':
             self.root = 'Market-1501-v15.09.15'
@@ -181,6 +181,15 @@ class MarketDataset(BaseDataset):
             A_fake_attr = self.A_attr[fake_index][:]
         B_real_attr = self.B_attr[index % self.B_size]
 
+        # only have the attributes of low-resolution(B) images
+        B_real_attr = self.B_attr[index % self.B_size]
+        # sample a fake attributes for B
+        fake_index = np.random.permutation(self.B_size)[0]
+        B_fake_attr = self.B_attr[fake_index][:]
+        while list(B_fake_attr) == list(B_real_attr):
+            fake_index = np.random.permutation(self.B_size)[0]
+            B_fake_attr = self.B_attr[fake_index][:]
+
         # # change the attributes value, (1,2)->(-1,1)
         # A_real_attr = list((np.array(A_real_attr) - 1.5) * 0.5)
         # A_fake_attr = list((np.array(A_fake_attr) - 1.5) * 0.5)
@@ -192,7 +201,7 @@ class MarketDataset(BaseDataset):
         return {'A': A, 'B': B, 'GT_B': GT_B,
                 'A_paths': A_path, 'B_paths': B_path,
                 'A_real_attr': A_real_attr, 'A_fake_attr': A_fake_attr,
-                'B_real_attr': B_real_attr,
+                'B_real_attr': B_real_attr, 'B_fake_attr': B_fake_attr,
                 'A_label': A_label, 'B_label': B_label}
 
     def __len__(self):
