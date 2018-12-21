@@ -19,8 +19,14 @@ if __name__ == '__main__':
     opt.no_flip = True    # no flip
     opt.display_id = -1   # no visdom display
 
-    # load the train part data
-    opt.phase = 'train'
+    # load the train data, only SR the B part data
+    # opt.phase = 'train'
+    # # load the test data, super-resolve the query images
+    # opt.phase = 'test'
+
+    opt.dataset_type = 'B'
+    # opt.save_phase = train, super-resolve the B part in the train set
+    opt.phase = opt.save_phase
     data_loader = CreateDataLoader(opt)
     dataset = data_loader.load_data()
 
@@ -28,8 +34,8 @@ if __name__ == '__main__':
     model = create_model(opt)
     model.setup(opt)
     # create a website
-    web_dir = os.path.join(opt.results_dir, opt.name, '%s_%s' % (opt.phase, opt.epoch))
-    webpage = html.HTML(web_dir, 'Experiment = %s, Phase = %s, Epoch = %s' % (opt.name, opt.phase, opt.epoch))
+    web_dir = os.path.join(opt.results_dir, opt.name, '%s_%s' % (opt.save_phase, opt.epoch))
+    webpage = html.HTML(web_dir, 'Experiment = %s, Phase = %s, Epoch = %s' % (opt.name, opt.save_phase, opt.epoch))
     # test with eval mode. This only affects layers like batchnorm and dropout.
     # pix2pix: we use batchnorm and dropout in the original pix2pix. You can experiment it with and without eval() mode.
     # CycleGAN: It should not affect CycleGAN as CycleGAN uses instancenorm without dropout.
@@ -40,15 +46,11 @@ if __name__ == '__main__':
     avg_ssim = 0
     avg_bicubic_ssim = 0
     for i, data in enumerate(dataset):
-        # if i >= opt.num_test:
-            # break
+        # change the image paths for save the super-resolved B images in the train set
         model.set_input(data)
-        model.test()    # compute the forward(), psnr, ssim
+        model.test_SR()    # compute the forward(), psnr, ssim
         visuals = model.get_current_visuals()
         img_path = model.get_image_paths()
-        # if i < opt.num_test:
-        # if i < 10:
-        #     save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize)
 
         save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize)
 
@@ -63,10 +65,6 @@ if __name__ == '__main__':
         # print(ssim.item())
         avg_bicubic_ssim += bicubic_ssim
         avg_ssim += ssim
-    # print("===> Avg. bibubic PSNR: {:.4f} dB".format(avg_bicubic_psnr / opt.num_test))
-    # print("===> Avg. PSNR: {:.4f} dB".format(avg_psnr / opt.num_test))
-    # print("===> Avg. bibubic SSIM: {:.4f} dB".format(avg_bicubic_ssim / opt.num_test))
-    # print("===> Avg. SSIM: {:.4f} dB".format(avg_ssim / opt.num_test))
 
     print("===> Avg. bibubic PSNR: {:.4f} dB".format(avg_bicubic_psnr / len(dataset)))
     print("===> Avg. PSNR: {:.4f} dB".format(avg_psnr / len(dataset)))
