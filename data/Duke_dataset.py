@@ -168,7 +168,15 @@ class DukeDataset(BaseDataset):
         while list(A_fake_attr) == list(A_real_attr):
             fake_index = np.random.permutation(self.A_size)[0]
             A_fake_attr = self.A_attr[fake_index][:]
+
+        # only have the attributes of low-resolution(B) images
         B_real_attr = self.B_attr[index % self.B_size]
+        # sample a fake attributes for B
+        fake_index = np.random.permutation(self.B_size)[0]
+        B_fake_attr = self.B_attr[fake_index][:]
+        while list(B_fake_attr) == list(B_real_attr):
+            fake_index = np.random.permutation(self.B_size)[0]
+            B_fake_attr = self.B_attr[fake_index][:]
 
         # # change the attributes value, (1,2)->(-1,1)
         # A_real_attr = list((np.array(A_real_attr) - 1.5) * 0.5)
@@ -181,7 +189,7 @@ class DukeDataset(BaseDataset):
         return {'A': A, 'B': B, 'GT_B': GT_B,
                 'A_paths': A_path, 'B_paths': B_path,
                 'A_real_attr': A_real_attr, 'A_fake_attr': A_fake_attr,
-                'B_real_attr': B_real_attr,
+                'B_real_attr': B_real_attr, 'B_fake_attr': B_fake_attr,
                 'A_label': A_label, 'B_label': B_label}
 
     def __len__(self):
