@@ -20,7 +20,7 @@ class SRDukeDataset(BaseDataset):
         parser.add_argument('--resize_w', type=int, default=128, help='the size of the width should be resized')
         parser.add_argument('--num_classes', type=int, default=702, help='The total num of the id classes ')
         parser.add_argument('--results_dir', type=str, default='./results/', help='saves results here.')
-        parser.add_argument('--SR_name', type=str, default='Duke_cCyclegan', help='saves SR results here.')
+        # parser.add_argument('--SR_name', type=str, default='Duke_cCyclegan', help='saves SR results here.')
         return parser
 
     def initialize(self, opt):
@@ -67,6 +67,7 @@ class SRDukeDataset(BaseDataset):
             SR_B_paths, SR_B_labels = make_SR_dataset(dir_SR_B)
             print(len(SR_B_paths))
             self.B_paths = SR_B_paths
+            print(self.B_paths[0])
             # print(self.train_id_map.keys())
             # print(SR_B_labels)
             self.B_labels = list(map(lambda x: self.train_id_map[x], SR_B_labels))
@@ -146,12 +147,13 @@ class SRDukeDataset(BaseDataset):
         B_img = Image.open(B_path).convert('RGB')
 
         A = self.transform_A(A_img)
+        B = self.transform_A(B_img)
 
-        GT_B = self.transform_B(B_img)  # ground-truth high-resolution
-        B = self.transform_LR(GT_B)  # produce the low-resolution images of the GT_B
-        # normalize the images
-        GT_B = self.transform_norm(GT_B)
-        B = self.transform_norm(B)
+        # GT_B = self.transform_B(B_img)  # ground-truth high-resolution
+        # B = self.transform_LR(GT_B)  # produce the low-resolution images of the GT_B
+        # # normalize the images
+        # GT_B = self.transform_norm(GT_B)
+        # B = self.transform_norm(B)
 
         if self.opt.direction == 'BtoA':
             input_nc = self.opt.output_nc
@@ -186,7 +188,7 @@ class SRDukeDataset(BaseDataset):
         A_label = self.A_labels[index_A]
         B_label = self.B_labels[index % self.B_size]
 
-        return {'A': A, 'B': B, 'GT_B': GT_B,
+        return {'A': A, 'B': B,
                 'A_paths': A_path, 'B_paths': B_path,
                 'A_real_attr': A_real_attr, 'A_fake_attr': A_fake_attr,
                 'B_real_attr': B_real_attr,
