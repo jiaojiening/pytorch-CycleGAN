@@ -22,7 +22,6 @@ class ReidSRcCycleGANModel(BaseModel):
             # reid parameters
             # parser.add_argument('--num_classes', type=int, default=702, help='The total num of the id classes ')
             parser.add_argument('--droprate', type=float, default=0.5, help='the dropout ratio in reid model')
-            parser.add_argument('--reid_lr', type=float, default=0.1, help='initial reid learning rate for adam')
         return parser
 
     def initialize(self, opt):

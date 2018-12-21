@@ -198,7 +198,9 @@ class SRcCycleGANModel(BaseModel):
 
     def backward_D_B(self):
         fake_A = self.fake_A_pool.query(self.fake_A)
-        self.loss_D_B = self.backward_D_condit(self.netD_B, self.real_A, fake_A, self.A_real_attr, self.B_real_attr)
+        # self.loss_D_B = self.backward_D_condit(self.netD_B, self.real_A, fake_A, self.A_real_attr, self.B_real_attr)
+        # To avoid the self.A_real_attr = self.B_real_attr
+        self.loss_D_B = self.backward_D_condit(self.netD_B, self.real_A, fake_A, self.A_real_attr, self.A_fake_attr)
 
     def backward_G(self):
         lambda_idt = self.opt.lambda_identity
@@ -229,7 +231,8 @@ class SRcCycleGANModel(BaseModel):
         # GAN loss D_A(G_A(A))
         self.loss_G_A = self.criterionGAN(self.netD_A(self.fake_B), True)
         # GAN loss D_B(G_B(B))
-        self.loss_G_B = self.criterionGAN(self.netD_B(self.fake_A, self.A_real_attr), True)
+        # self.loss_G_B = self.criterionGAN(self.netD_B(self.fake_A, self.A_real_attr), True)
+        self.loss_G_B = self.criterionGAN(self.netD_B(self.fake_A, self.B_real_attr), True)
         # Forward cycle loss
         self.loss_cycle_A = self.criterionCycle(self.rec_A, self.real_A) * lambda_A
         # Backward cycle loss
