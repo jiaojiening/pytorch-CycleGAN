@@ -14,17 +14,18 @@ class ReidModel(BaseModel):
     def modify_commandline_options(parser, is_train=True):
         # default CycleGAN did not use dropout
         parser.set_defaults(no_dropout=True)
-        # reid parameters
+        # reid parameters, put the parameter num_classes in the dataset
         # parser.add_argument('--num_classes', type=int, default=702, help='The total num of the id classes ')
         # parser.add_argument('--num_classes', type=int, default=751, help='The total num of the id classes ')
         parser.add_argument('--droprate', type=float, default=0.5, help='the dropout ratio in reid model')
+        parser.add_argument('--NR', action='store_true', help='use the normal resolution dataset')
         if is_train:
             parser.add_argument('--lambda_A', type=float, default=10.0, help='weight for cycle loss (A -> B -> A)')
             parser.add_argument('--lambda_B', type=float, default=10.0,
                                 help='weight for cycle loss (B -> A -> B)')
             parser.add_argument('--lambda_identity', type=float, default=0.5, help='use identity mapping. Setting lambda_identity other than 0 has an effect of scaling the weight of the identity mapping loss. For example, if the weight of the identity loss should be 10 times smaller than the weight of the reconstruction loss, please set lambda_identity = 0.1')
             # reid learning rate
-            parser.add_argument('--reid_lr', type=float, default=0.1, help='initial reid learning rate for adam')
+            # parser.add_argument('--reid_lr', type=float, default=0.1, help='initial reid learning rate for adam')
         return parser
 
     def initialize(self, opt):
@@ -73,15 +74,16 @@ class ReidModel(BaseModel):
 
     def set_input(self, input):
         if self.isTrain:
-            AtoB = self.opt.direction == 'AtoB'
-            self.real_A = input['A' if AtoB else 'B'].to(self.device)
-            self.real_B = input['B' if AtoB else 'A'].to(self.device)
+            # AtoB = self.opt.direction == 'AtoB'
+            self.real_A = input['A'].to(self.device)
+            # train on the normal resolution B set
+            self.real_B = input['B' if not self.opt.NR else 'GT_B'].to(self.device)
 
             # get the id label for person reid
             self.A_label = input['A_label'].to(self.device)
             self.B_label = input['B_label'].to(self.device)
         else:
-            self.img = input['img'].to(self.device)
+            self.img = input['img' if not self.opt.NR else 'GT_img'].to(self.device)
             self.img_label = input['img_label'].to(self.device)
             self.image_paths = input['img_paths']  # list
 
