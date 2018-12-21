@@ -90,11 +90,13 @@ class SingleMarketDataset(BaseDataset):
         img_label = self.img_labels[index]
         if self.dataset_type == 'A':
             img = self.transform_A(img)
-            # do not need the attributes
+            GT_img = img
+            # do not need the attributes, do not have the attributes
             img_attr = img_label
         else:
             # low-resolution image
             img = self.transform_B(img)
+            GT_img = self.transform_norm(img)
             img = self.transform_LR(img)
             img = self.transform_norm(img)
             img_attr = self.img_attrs[index]
@@ -109,6 +111,7 @@ class SingleMarketDataset(BaseDataset):
             img = tmp.unsqueeze(0)
 
         return {'img': img, 'img_paths': img_path,
+                'GT_img': GT_img,
                 'img_attr': img_attr,
                 'img_label': img_label}
 

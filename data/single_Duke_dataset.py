@@ -51,6 +51,7 @@ class SingleDukeDataset(BaseDataset):
         for i, label in enumerate(list(np.unique(np.array(gallery_labels)))):
             self.test_attr_map[label] = i
 
+        # create the test A data or test B data
         if self.dataset_type == 'A':
             self.img_paths = gallery_paths
             self.img_labels = gallery_labels
@@ -69,7 +70,6 @@ class SingleDukeDataset(BaseDataset):
                 self.img_attrs.append(self.test_attr[attr_id])
 
         # A: high-resolution, B: low-resolution
-        # TODO: in base_dataset, maybe return the transform_list
         self.transform_A = get_transforms_reid(opt, type='A')
         self.transform_B = get_transforms_reid(opt, type='B')
         self.transform_LR = get_transform_LR_reid(opt)
@@ -82,9 +82,11 @@ class SingleDukeDataset(BaseDataset):
 
         if self.dataset_type == 'A':
             img = self.transform_A(img)
+            GT_img = img
         else:
             # low-resolution image
             img = self.transform_B(img)
+            GT_img = self.transform_norm(img)
             img = self.transform_LR(img)
             img = self.transform_norm(img)
 
@@ -100,6 +102,7 @@ class SingleDukeDataset(BaseDataset):
         img_attr = self.img_attrs[index]
         img_label = self.img_labels[index]
         return {'img': img, 'img_paths': img_path,
+                'GT_img': GT_img,
                 'img_attr': img_attr,
                 'img_label': img_label}
 
