@@ -73,7 +73,7 @@ class BaseModel():
         if not self.isTrain or opt.continue_train:
             load_suffix = 'iter_%d' % opt.load_iter if opt.load_iter > 0 else opt.epoch
             self.load_SR_networks(load_suffix)
-            self.load_reid_networks(load_suffix)
+            # self.load_reid_networks(load_suffix)
         self.print_networks(opt.verbose)
 
     # make models eval mode during test time
