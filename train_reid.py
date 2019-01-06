@@ -58,11 +58,15 @@ if __name__ == '__main__':
             model.save_networks('latest')
             model.save_networks(epoch)
 
-        accuracy_A, accuracy_B = model.compute_corrects()
+        accuracy_A, accuracy_B, accuracy_attr_A, accuracy_attr_B = model.compute_corrects()
         accuracy_A = accuracy_A / len(dataset)
         accuracy_B = accuracy_B / len(dataset)
+        accuracy_attr_A = [accu_attr / len(dataset) for accu_attr in accuracy_attr_A]
+        accuracy_attr_B = [accu_attr / len(dataset) for accu_attr in accuracy_attr_B]
         print('The accuracy of A: %f, the accuracy of B: %f' % (accuracy_A, accuracy_B))
+        print('The accuracy of the attributes A:', accuracy_attr_A)
+        print('The accuracy of the attributes B:', accuracy_attr_B)
         print('End of epoch %d / %d \t Time Taken: %d sec' %
               (epoch, opt.niter + opt.niter_decay, time.time() - epoch_start_time))
-        # model.update_learning_rate()
-        model.update_reid_learning_rate()
+        model.update_learning_rate()
+        # model.update_reid_learning_rate()

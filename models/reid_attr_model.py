@@ -2,36 +2,34 @@ import torch
 import itertools
 from util.image_pool import ImagePool
 from .base_model import BaseModel
+from . import networks
 from . import networks_reid
 
 
-class ReidModel(BaseModel):
+class ReidAttrModel(BaseModel):
     def name(self):
-        return 'ReidModel'
+        return 'ReidAttrModel'
 
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
         # default CycleGAN did not use dropout
         parser.set_defaults(no_dropout=True)
         # reid parameters, put the parameter num_classes in the dataset
-        # parser.add_argument('--num_classes', type=int, default=702, help='The total num of the id classes ')
-        # parser.add_argument('--num_classes', type=int, default=751, help='The total num of the id classes ')
         parser.add_argument('--droprate', type=float, default=0.5, help='the dropout ratio in reid model')
         parser.add_argument('--NR', action='store_true', help='use the normal resolution dataset')
         if is_train:
             parser.add_argument('--lambda_A', type=float, default=10.0, help='weight for cycle loss (A -> B -> A)')
             parser.add_argument('--lambda_B', type=float, default=10.0,
                                 help='weight for cycle loss (B -> A -> B)')
-            parser.add_argument('--lambda_identity', type=float, default=0.5, help='use identity mapping. Setting lambda_identity other than 0 has an effect of scaling the weight of the identity mapping loss. For example, if the weight of the identity loss should be 10 times smaller than the weight of the reconstruction loss, please set lambda_identity = 0.1')
-            # reid learning rate
-            # parser.add_argument('--reid_lr', type=float, default=0.1, help='initial reid learning rate for adam')
+            parser.add_argument('--lambda_identity', type=float, default=1.0,
+                                help='use identity mapping. Setting lambda_identity other than 0 has an effect of scaling the weight of the identity mapping loss. For example, if the weight of the identity loss should be 10 times smaller than the weight of the reconstruction loss, please set lambda_identity = 0.1')
         return parser
 
     def initialize(self, opt):
         BaseModel.initialize(self, opt)
 
         # specify the training losses you want to print out. The program will call base_model.get_current_losses
-        self.loss_names = ['reid']
+        self.loss_names = ['reid', 'attr']
         # specify the images you want to save/display. The program will call base_model.get_current_visuals
         visual_names_A = ['real_A']
         visual_names_B = ['real_B']
@@ -39,14 +37,17 @@ class ReidModel(BaseModel):
         self.visual_names = visual_names_A + visual_names_B
         # specify the models you want to save to the disk. The program will call base_model.save_networks and base_model.load_networks
         self.model_names = ['D_reid']
+        # self.model_names = ['Reid']
+
+        # self.num_attr = opt.num_attr
 
         # define the re-id network
-        # Load a pre-trained resnet model and reset the final connected layer
+        # Load a pretrained resnet model and reset the final connected layer
         # the dropout layer is in the classifier
         if self.isTrain:
-            self.netD_reid = networks_reid.ft_net(opt.num_classes, opt.droprate)
+            self.netD_reid = networks_reid.ft_attr_net(opt.num_classes, opt.attr_class_num, opt.droprate)
         else:
-            self.netD_reid = networks_reid.ft_net(opt.num_classes)
+            self.netD_reid = networks_reid.ft_attr_net(opt.num_classes, opt.attr_class_num)
 
         # use gpu
         self.netD_reid = self.netD_reid.to(self.device)
@@ -57,6 +58,12 @@ class ReidModel(BaseModel):
             # initialize reid optimizer
             ignored_params = list(map(id, self.netD_reid.model.fc.parameters())) + \
                              list(map(id, self.netD_reid.classifier.parameters()))
+
+            # print the parameter names
+            # params = self.netD_reid.classifier.state_dict()
+            # for k, v in params.items():
+            #     print(k)
+
             base_params = filter(lambda p: id(p) not in ignored_params, self.netD_reid.parameters())
             self.optimizer_D_reid = torch.optim.SGD([
                 {'params': base_params, 'lr': 0.1*opt.reid_lr},
@@ -81,40 +88,33 @@ class ReidModel(BaseModel):
             # get the id label for person reid
             self.A_label = input['A_label'].to(self.device)
             self.B_label = input['B_label'].to(self.device)
+            self.A_real_attr = input['A_real_attr'].to(self.device)
+            self.B_real_attr = input['B_real_attr'].to(self.device)
         else:
             self.img = input['img' if not self.opt.NR else 'GT_img'].to(self.device)
             self.img_label = input['img_label'].to(self.device)
             self.image_paths = input['img_paths']  # list
 
     def forward(self):
-        if self.isTrain:
-            # self.netD_reid.train(True)   # Set model to training mode
-            self.netD_reid = self.netD_reid.train()
+        # self.netD_reid.train(True)   # Set model to training mode
+        self.netD_reid = self.netD_reid.train()
 
-            # training: 1 * num_classes prediction vector,
-            # test: 1 * 2048 feature vector
-            self.pred_real_A = self.netD_reid(self.real_A)  # A_label HR
-            self.pred_real_B = self.netD_reid(self.real_B)  # B_label LR
-        else:
-            # Remove the final fc layer and classifier layer
-            self.netD_reid.model.fc = torch.nn.Sequential()
-            self.netD_reid.classifier = torch.nn.Sequential()
-            # self.netD_reid.train(False)  # Set model to evaluate mode
-            self.netD_reid = self.netD_reid.eval()
-
-            # extract_feature
-            f = self.netD_reid(self.img)  # A_label HR
-            self.features = torch.cat((self.features, f), 0)
+        # training: 1 * num_classes prediction vector,
+        # test: 1 * 2048 feature vector
+        self.pred_real_A, self.attr_pred_real_A = self.netD_reid(self.real_A)  # A_label HR
+        self.pred_real_B, self.attr_pred_real_B = self.netD_reid(self.real_B)  # B_label LR
 
     def extract_features(self):
         # Remove the final fc layer and classifier layer
-        self.netD_reid.model.fc = torch.nn.Sequential()
-        self.netD_reid.classifier = torch.nn.Sequential()
+        # self.netD_reid.model.fc = torch.nn.Sequential()
+        # self.netD_reid.classifier = torch.nn.Sequential()
         # self.netD_reid.train(False)  # Set model to evaluate mode
         self.netD_reid = self.netD_reid.eval()
 
         # extract_feature
-        f = self.netD_reid(self.img)  # A_label HR
+        # x1, x2 = self.netD_reid(self.img)  # A_label HR
+        self.netD_reid(self.img)
+        f = self.netD_reid.get_feature()
 
         # norm feature
         fnorm = torch.norm(f, p=2, dim=1, keepdim=True)
@@ -124,27 +124,54 @@ class ReidModel(BaseModel):
         f = f.data.cpu()
         self.features = torch.cat((self.features, f), 0)
 
-    def backward_G(self):
-        # print(self.A_label)
-        # print(self.B_label)
+    def backward_loss(self):
+        lambda_identity = self.opt.lambda_identity
+
         _, pred_label_real_A = torch.max(self.pred_real_A, 1)
         _, pred_label_real_B = torch.max(self.pred_real_B, 1)
-        # print(pred_label_real_A)
-        # print(pred_label_real_B)
         self.corrects_A += float(torch.sum(pred_label_real_A == self.A_label))
         self.corrects_B += float(torch.sum(pred_label_real_B == self.B_label))
 
         # add reid loss to update the G_B(LR-HR)
         self.loss_reid_real_A = self.criterionReid(self.pred_real_A, self.A_label)
         self.loss_reid_real_B = self.criterionReid(self.pred_real_B, self.B_label)
-        self.loss_reid = self.loss_reid_real_A + self.loss_reid_real_B
-        self.loss_G = self.loss_reid
-        self.loss_G.backward()
+        # self.loss_reid = self.loss_reid_real_A + self.loss_reid_real_B
+        self.loss_reid = (self.loss_reid_real_A + self.loss_reid_real_B)/2.0
+
+        # add the attributes loss
+        loss_attr_A = 0
+        # print(self.A_real_attr.size())    #[batch_szie, 23]
+        for index, attr_pred in enumerate(self.attr_pred_real_A):
+            # print(attr_pred.size())       # [[batch_size, 2]]
+            # real_attr = (self.A_real_attr[:, index] - 1).long()
+            real_attr = (self.A_real_attr[:, index] - torch.min(self.A_real_attr[:, index])).long()
+            # loss_attr_A +=  self.criterionReid(attr_pred, real_attr)
+            loss_attr_A += self.criterionReid(attr_pred, real_attr) * self.opt.attr_mask[index]
+            _, pred_attr = torch.max(attr_pred, 1)
+            self.corrects_attr_A[index] += float(torch.sum(pred_attr == real_attr))
+        # loss_attr_A = loss_attr_A / len(self.attr_pred_real_A)
+        loss_attr_A = loss_attr_A / sum(self.opt.attr_mask)
+
+        loss_attr_B = 0
+        for index, attr_pred in enumerate(self.attr_pred_real_B):
+            # real_attr = (self.B_real_attr[:, index] - 1).long()
+            real_attr = (self.B_real_attr[:, index] - torch.min(self.B_real_attr[:, index])).long()
+            # loss_attr_B += self.criterionReid(attr_pred, real_attr)
+            loss_attr_B += self.criterionReid(attr_pred, real_attr) * self.opt.attr_mask[index]
+            _, pred_attr = torch.max(attr_pred, 1)
+            self.corrects_attr_B[index] += float(torch.sum(pred_attr == real_attr))
+        # loss_attr_B = loss_attr_B / len(self.attr_pred_real_B)
+        loss_attr_B = loss_attr_B / sum(self.opt.attr_mask)
+
+        # self.loss_attr = loss_attr_A + loss_attr_B
+        self.loss_attr = (loss_attr_A + loss_attr_B)/2.0
+        self.loss = lambda_identity*self.loss_reid + self.loss_attr
+
+        self.loss.backward()
 
     def optimize_parameters(self):
         # forward
         self.forward()
-        # G_A and G_B
         self.optimizer_D_reid.zero_grad()
-        self.backward_G()
+        self.backward_loss()
         self.optimizer_D_reid.step()

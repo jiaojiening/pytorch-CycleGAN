@@ -12,11 +12,14 @@ class SingleMarketDataset(BaseDataset):
     @staticmethod
     def modify_commandline_options(parser, is_train):
         # parser.add_argument('--dataset_type', type=str, default='A', help='the A set')
+        Market_attr_class_num = [4, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
         parser.add_argument('--up_scale', type=int, default=4, help='up_scale of the image super-resolution')
         parser.add_argument('--num_attr', type=int, default=27, help='the number of the attributes')
         parser.add_argument('--resize_h', type=int, default=256, help='the size of the height should be resized')
         parser.add_argument('--resize_w', type=int, default=128, help='the size of the width should be resized')
-        parser.add_argument('--num_classes', type=int, default=751, help='The total num of the id classes ')
+        parser.add_argument('--num_classes', type=int, default=751, help='the total num of the id classes')
+        parser.add_argument('--attr_class_num', nargs='+', type=int, help='the number of classes of each attributes')
+        parser.set_defaults(attr_class_num=Market_attr_class_num)
         return parser
 
     def initialize(self, opt):

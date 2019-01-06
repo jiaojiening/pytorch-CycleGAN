@@ -2,6 +2,7 @@ import os
 import torch
 from collections import OrderedDict
 from . import networks
+from . import networks_reid
 
 
 class BaseModel():
@@ -29,12 +30,18 @@ class BaseModel():
         self.model_names = []
         self.visual_names = []
         self.image_paths = []
+        # add some attributes here
+        self.optimizers = []
+        self.optimizer_reid =[]
         self.psnr = 0
         self.bicubic_psnr = 0
         self.ssim = 0
         self.bicubic_ssim = 0
         self.corrects_A = 0
         self.corrects_B = 0
+        self.num_attr = opt.num_attr
+        self.corrects_attr_A = opt.num_attr * [0.0]
+        self.corrects_attr_B = self.num_attr * [0.0]
         self.features = torch.FloatTensor()
 
 
@@ -60,20 +67,49 @@ class BaseModel():
     def setup(self, opt, parser=None):
         if self.isTrain:
             self.schedulers = [networks.get_scheduler(optimizer, opt) for optimizer in self.optimizers]
+            if len(self.optimizer_reid) > 0:
+                self.schedulers.append(networks_reid.get_scheduler(self.optimizer_reid[0], opt))
         if not self.isTrain or opt.continue_train:
             load_suffix = 'iter_%d' % opt.load_iter if opt.load_iter > 0 else opt.epoch
             self.load_networks(load_suffix)
         self.print_networks(opt.verbose)
 
-    # load and print networks; create schedulers
-    # load both the SRcCycle_gan and reid networks
-    def setup_joint(self, opt, parser=None):
+        # # load and print networks; create schedulers
+        # def setup(self, opt, parser=None):
+        #     if self.isTrain:
+        #         self.schedulers = [networks.get_scheduler(optimizer, opt.lr_policy, opt) for optimizer in
+        #                            self.optimizers]
+        #         # add the optimizer_reid
+        #         # self.schedulers.extend(
+        #         #     networks.get_scheduler(optimizer, opt.reid_lr_policy, opt) for optimizer in self.optimizer_reid)
+        #         if len(self.optimizer_reid) > 0:
+        #             self.schedulers.append(networks.get_scheduler(self.optimizer_reid[0], opt.reid_lr_policy, opt))
+        #     if not self.isTrain or opt.continue_train:
+        #         load_suffix = 'iter_%d' % opt.load_iter if opt.load_iter > 0 else opt.epoch
+        #         self.load_networks(load_suffix)
+        #     self.print_networks(opt.verbose)
+
+    # load pre-trained networks
+    # initialization for different stage in joint training,
+    # only for the joint training phase, not for test phase
+    def setup_joint_training(self, opt, parser=None):
         if self.isTrain:
             self.schedulers = [networks.get_scheduler(optimizer, opt) for optimizer in self.optimizers]
-        if not self.isTrain or opt.continue_train:
-            load_suffix = 'iter_%d' % opt.load_iter if opt.load_iter > 0 else opt.epoch
+            if len(self.optimizer_reid) > 0:
+                self.schedulers.append(networks_reid.get_scheduler(self.optimizer_reid[0], opt))
+        load_suffix = 'iter_%d' % opt.load_iter if opt.load_iter > 0 else opt.epoch
+        if opt.stage == 0:
+            # load the pre-trained SR model, jointly train the reid and SR model
             self.load_SR_networks(load_suffix)
-            # self.load_reid_networks(load_suffix)
+        elif opt.stage == 1:
+            # load the pre-trained reid model and fix the reid model, just train the SR model
+            self.load_reid_networks(load_suffix)
+        elif opt.stage ==2:
+            # load the pre-trained reid model and the SR model
+            self.load_reid_networks(load_suffix)
+            self.load_SR_networks(load_suffix)
+        else:
+            assert ('unknown joint training stage')
         self.print_networks(opt.verbose)
 
     # make models eval mode during test time
@@ -117,9 +153,13 @@ class BaseModel():
     def compute_corrects(self):
         corrects_A = self.corrects_A
         corrects_B = self.corrects_B
+        corrects_attr_A = self.corrects_attr_A
+        corrects_attr_B = self.corrects_attr_B
         self.corrects_A = 0
         self.corrects_B = 0
-        return corrects_A, corrects_B
+        self.corrects_attr_A = self.num_attr * [0.0]
+        self.corrects_attr_B = self.num_attr * [0.0]
+        return corrects_A, corrects_B, corrects_attr_A, corrects_attr_B
 
     # get image paths
     def get_image_paths(self):
@@ -132,15 +172,19 @@ class BaseModel():
     def update_learning_rate(self):
         for scheduler in self.schedulers:
             scheduler.step()
-        lr = self.optimizers[0].param_groups[0]['lr']
-        print('learning rate = %.7f' % lr)
+        if len(self.optimizers) > 0:
+            lr = self.optimizers[0].param_groups[0]['lr']
+            print('learning rate = %.7f' % lr)
+        if len(self.optimizer_reid) > 0:
+            reid_lr = self.optimizer_reid[0].param_groups[0]['lr']
+            print('reid learning rate = %.7f' % reid_lr)
 
-    # update reid learning rate (called once every epoch)
-    def update_reid_learning_rate(self):
-        # update the reid learing rate scheduler
-        self.exp_lr_scheduler.step()
-        reid_lr = self.optimizer_D_reid.param_groups[0]['lr']
-        print('reid learning rate = %.7f' % reid_lr)
+    # # update reid learning rate (called once every epoch)
+    # def update_reid_learning_rate(self):
+    #     # update the reid learing rate scheduler
+    #     self.exp_lr_scheduler.step()
+    #     reid_lr = self.optimizer_D_reid.param_groups[0]['lr']
+    #     print('reid learning rate = %.7f' % reid_lr)
 
     # return visualization images. train.py will display these images, and save the images to a html
     def get_current_visuals(self):
@@ -213,6 +257,7 @@ class BaseModel():
                     self.__patch_instance_norm_state_dict(state_dict, net, key.split('.'))
                 net.load_state_dict(state_dict)
 
+    # load the G_A, D_A, G_B, D_B networks
     def load_SR_networks(self, epoch):
         for name in self.model_names:
             if name == 'D_reid':
@@ -235,6 +280,7 @@ class BaseModel():
                     self.__patch_instance_norm_state_dict(state_dict, net, key.split('.'))
                 net.load_state_dict(state_dict)
 
+    # load the reid networks
     def load_reid_networks(self, epoch):
         for name in ['D_reid']:
             if isinstance(name, str):

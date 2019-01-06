@@ -16,14 +16,16 @@ if __name__ == '__main__':
     dataset_size = len(data_loader)
     print('#training images = %d' % dataset_size)
 
-
     # decrease the learning rate
-    opt.lr = 0.00002
-    opt.reid_lr = 0.01
+    if opt.stage == 1:
+        opt.lr = opt.lr * 0.1
+    if opt.stage == 2:
+        opt.lr = opt.lr * 0.1
+        opt.reid_lr = opt.reid_lr * 0.1
     opt.continue_train = True
 
     model = create_model(opt)
-    model.setup_joint(opt)
+    model.setup_joint_training(opt)
     visualizer = Visualizer(opt)
     total_steps = 0
 
@@ -31,6 +33,7 @@ if __name__ == '__main__':
         epoch_start_time = time.time()
         iter_data_time = time.time()
         epoch_iter = 0
+        model.reset_model_status()
 
         for i, data in enumerate(dataset):
             iter_start_time = time.time()
@@ -47,6 +50,7 @@ if __name__ == '__main__':
                 visualizer.display_current_results(model.get_current_visuals(), epoch, save_result)
 
             if total_steps % opt.print_freq == 0:
+                # print(opt.batch_size)
                 losses = model.get_current_losses()
                 t = (time.time() - iter_start_time) / opt.batch_size
                 visualizer.print_current_losses(epoch, epoch_iter, losses, t, t_data)
@@ -64,11 +68,11 @@ if __name__ == '__main__':
             model.save_networks('latest')
             model.save_networks(epoch)
 
-        accuracy_A, accuracy_B = model.compute_corrects()
+        accuracy_A, accuracy_B, _, _ = model.compute_corrects()
         accuracy_A = accuracy_A / len(dataset)
         accuracy_B = accuracy_B / len(dataset)
         print('The accuracy of A: %f, the accuracy of B: %f' % (accuracy_A, accuracy_B))
         print('End of epoch %d / %d \t Time Taken: %d sec' %
               (epoch, opt.niter + opt.niter_decay, time.time() - epoch_start_time))
         model.update_learning_rate()
-        model.update_reid_learning_rate()
+        # model.update_reid_learning_rate()

@@ -1,6 +1,6 @@
 from .base_model import BaseModel
 from . import networks
-from . import network_reid
+from . import networks_reid
 import torch
 
 
@@ -32,7 +32,7 @@ class TestReidSRModel(BaseModel):
         self.netG_B = networks.define_G(opt.output_nc + opt.num_attr, opt.input_nc, opt.ngf, opt.netG, opt.norm,
                                         not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
 
-        self.netD_reid = network_reid.ft_net(opt.num_classes)
+        self.netD_reid = networks_reid.ft_net(opt.num_classes)
         self.netD_reid = self.netD_reid.to(self.device)
 
     def set_input(self, input):

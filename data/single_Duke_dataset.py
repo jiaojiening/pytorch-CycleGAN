@@ -12,11 +12,17 @@ class SingleDukeDataset(BaseDataset):
     @staticmethod
     def modify_commandline_options(parser, is_train):
         # parser.add_argument('--dataset_type', type=str, default='A', help='the A set')
+        Duke_attr_class_num = [2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+        Duke_attr_mask = [1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
         parser.add_argument('--up_scale', type=int, default=4, help='up_scale of the image super-resolution')
         parser.add_argument('--num_attr', type=int, default=23, help='the number of the attributes')
         parser.add_argument('--resize_h', type=int, default=256, help='the size of the height should be resized')
         parser.add_argument('--resize_w', type=int, default=128, help='the size of the width should be resized')
-        parser.add_argument('--num_classes', type=int, default=702, help='The total num of the id classes ')
+        parser.add_argument('--num_classes', type=int, default=702, help='the total num of the id classes')
+        parser.add_argument('--attr_class_num', nargs='+', type=int, help='the number of classes of each attributes')
+        parser.set_defaults(attr_class_num=Duke_attr_class_num)
+        parser.add_argument('--attr_mask', nargs='+', type=int, help='ignore some attributes')
+        parser.set_defaults(attr_mask=Duke_attr_mask)
         return parser
 
     def initialize(self, opt):

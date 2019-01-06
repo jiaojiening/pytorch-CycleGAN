@@ -58,7 +58,7 @@ if __name__ == '__main__':
             model.save_networks('latest')
             model.save_networks(epoch)
 
-        accuracy_A, accuracy_B = model.compute_corrects()
+        accuracy_A, accuracy_B, _, _ = model.compute_corrects()
         accuracy_A = accuracy_A / len(dataset)
         accuracy_B = accuracy_B / len(dataset)
         print('The accuracy of A: %f, the accuracy of B: %f' % (accuracy_A, accuracy_B))

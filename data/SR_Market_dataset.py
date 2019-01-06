@@ -11,45 +11,53 @@ import re
 from scipy.io import loadmat
 
 
-class SRDukeDataset(BaseDataset):
+class SRMarketDataset(BaseDataset):
     @staticmethod
     def modify_commandline_options(parser, is_train):
         parser.add_argument('--up_scale', type=int, default=4, help='up_scale of the image super-resolution')
-        parser.add_argument('--num_attr', type=int, default=23, help='the number of the attributes')
+        parser.add_argument('--num_attr', type=int, default=27, help='the number of the attributes')
         parser.add_argument('--resize_h', type=int, default=256, help='the size of the height should be resized')
         parser.add_argument('--resize_w', type=int, default=128, help='the size of the width should be resized')
-        parser.add_argument('--num_classes', type=int, default=702, help='The total num of the id classes ')
+        parser.add_argument('--num_classes', type=int, default=751, help='the total num of the person classes')
         return parser
 
     def initialize(self, opt):
         self.opt = opt
         self.dataPath = '/home/share/jiening/dgd_datasets/raw'
-        self.root = opt.dataroot    # opt.dataroot = DukeMTMC-reID
+        # self.dataPath = '/home/weixiong/jiening'
+        if opt.dataroot == 'Market':
+            self.root = 'Market-1501-v15.09.15'
         self.isTrain = opt.isTrain
 
-        # load the attributes from the formatted attributes file, total 23 attributes
-        self.attrFile = os.path.join(self.dataPath, opt.dataroot, 'Duke_attributes.mat')  # get the attributes mat file
+        # load the attributes from the formatted attributes file, total 27 attributes
+        self.attrFile = os.path.join(self.dataPath, self.root, 'Market_attributes.mat')  # get the attributes mat file
         self.total_attr = loadmat(self.attrFile)
-        self.train_attr = self.total_attr['train_attr']  # 702 * 23
-        self.test_attr = self.total_attr['test_attr']    # 1110 * 23
+        self.train_attr = self.total_attr['train_attr']  # 751 * 27
+        self.test_attr = self.total_attr['test_attr']    # 750 * 27
+
+        # load the attributes index from the index file, total 27 attributes
+        self.attrIndexFile = os.path.join(self.dataPath, self.root, 'Market_index.mat')
+        self.total_attrIndex = loadmat(self.attrIndexFile)
+        self.train_attrIndex = self.total_attrIndex['train_index'][0]  # 751
+        self.test_attrIndex = self.total_attrIndex['test_index'][0]    # 750
 
         # split the A and B set without overlap
         if opt.phase == 'train':
             # ---------------------------------------
             # train_all (need to split A and B)
-            self.dir_train = os.path.join(self.dataPath, opt.dataroot, 'bounding_box_train')
+            self.dir_train = os.path.join(self.dataPath, self.root, 'bounding_box_train')
             self.train_paths, self.train_labels = make_reid_dataset(self.dir_train)
-            self.train_num = len(self.train_paths)  # 16522
+            self.train_num = len(self.train_paths)  # 12937
             print('total %d images in bounding_box_train' % self.train_num)
 
             self.train_id_map = {}
-            for i, label in enumerate(list(np.unique(np.array(self.train_labels)))):
+            for i, label in enumerate(self.train_attrIndex):
                 self.train_id_map[label] = i
-            # map the train_labels to train_id_labels start from zeros (0-702)
+            # map the train_labels to train_id_labels start from zeros (0-750)
             train_id_labels = list(map(lambda x: self.train_id_map[x], self.train_labels))
 
             # random half split the A and B in train
-            self.randIdx_file = os.path.join(self.dataPath, opt.dataroot, 'randIdx_Duke.npy')
+            self.randIdx_file = os.path.join(self.dataPath, self.root, 'randIdx_Market.npy')
             if os.path.exists(self.randIdx_file):
                 randIdx = np.load(self.randIdx_file)
             else:
@@ -63,20 +71,17 @@ class SRDukeDataset(BaseDataset):
 
             # get the super-resolution B set
             # dir_SR_B = os.path.join(opt.results_dir, opt.SR_name, '%s_%s' % (opt.save_phase, opt.epoch))
-            #TODO
+            # TODO
             opt.results_dir = './results/'
             dir_SR_B = os.path.join(opt.results_dir, opt.SR_name, '%s_%s' % (opt.phase, opt.epoch))
             SR_B_paths, SR_B_labels = make_SR_dataset(dir_SR_B)
             print(len(SR_B_paths))
             self.B_paths = SR_B_paths
-            print(self.B_paths[0])
-            # print(self.train_id_map.keys())
-            # print(SR_B_labels)
             self.B_labels = list(map(lambda x: self.train_id_map[x], SR_B_labels))
 
             # check that both the HR and LR images of each id
-            print(len(set(self.A_labels)))  # 702
-            print(len(set(self.B_labels)))  # 702
+            print(len(set(self.A_labels)))  # 751
+            print(len(set(self.B_labels)))  # 751
 
             self.A_attr = []
             for i in self.A_labels:
@@ -89,12 +94,11 @@ class SRDukeDataset(BaseDataset):
             self.B_size = len(self.B_paths)
             print(self.A_size)
             print(self.B_size)
+
         else:
             self.dataset_type = opt.dataset_type
             # -----------------------------------------
             # super-resolution query (test B) LR
-            # self.dir_query = os.path.join(self.dataPath, opt.dataroot, 'query')  # images in the query
-            # dir_SR_query = os.path.join(opt.results_dir, opt.SR_name, '%s_%s' % (opt.save_phase, opt.epoch))
             dir_SR_query = os.path.join(opt.results_dir, opt.SR_name, '%s_%s' % (opt.phase, opt.epoch))
             query_paths, query_labels = make_SR_dataset(dir_SR_query)
             query_num = len(query_paths)  # 2228
@@ -102,25 +106,26 @@ class SRDukeDataset(BaseDataset):
 
             # -----------------------------------------
             # gallery (test A) HR
-            dir_gallery = os.path.join(self.dataPath, opt.dataroot, 'bounding_box_test')
+            dir_gallery = os.path.join(self.dataPath, self.root, 'bounding_box_test')
             gallery_paths, gallery_labels = make_reid_dataset(dir_gallery)
             gallery_num = len(gallery_paths)  # 17661
             print('total %d images in bounding_box_test' % gallery_num)
 
             self.test_attr_map = {}
             # the query_labels are included in the gallery_labels
-            for i, label in enumerate(list(np.unique(np.array(gallery_labels)))):
+            for i, label in enumerate(self.test_attrIndex):
                 self.test_attr_map[label] = i
 
             # create the test A data or test B data
             if self.dataset_type == 'A':
                 self.img_paths = gallery_paths
                 self.img_labels = gallery_labels
+                # Not every person in gallery has the according attributes, like some distraction persons
+                # TODO:
                 self.img_attrs = []
                 for i in gallery_labels:
-                    # obtain the according id
-                    attr_id = self.test_attr_map[i]
-                    self.img_attrs.append(self.test_attr[attr_id])
+                    # obtain the according person id
+                    self.img_attrs.append(self.img_labels[i])
             else:
                 self.img_paths = query_paths
                 self.img_labels = query_labels
@@ -230,4 +235,4 @@ class SRDukeDataset(BaseDataset):
             return self.img_size
 
     def name(self):
-        return 'SRDukeDataset'
+        return 'SRMarketDataset'

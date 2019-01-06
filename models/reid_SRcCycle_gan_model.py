@@ -3,7 +3,7 @@ import itertools
 from util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
-from . import network_reid
+from . import networks_reid
 
 
 class ReidSRcCycleGANModel(BaseModel):
@@ -55,7 +55,7 @@ class ReidSRcCycleGANModel(BaseModel):
                                         not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
 
         # Load a pretrained resnet model and reset the final connected layer
-        self.netD_reid = network_reid.ft_net(opt.num_classes, opt.droprate)
+        self.netD_reid = networks_reid.ft_net(opt.num_classes, opt.droprate)
         # the reid network is trained on a single gpu because of the BatchNorm layer
         self.netD_reid = self.netD_reid.to(self.device)
 
@@ -84,6 +84,10 @@ class ReidSRcCycleGANModel(BaseModel):
                                                 lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizer_D = torch.optim.Adam(itertools.chain(self.netD_A.parameters(), self.netD_B.parameters()),
                                                 lr=opt.lr, betas=(opt.beta1, 0.999))
+            # self.optimizers = []
+            self.optimizers.append(self.optimizer_G)
+            self.optimizers.append(self.optimizer_D)
+
             # reid optimizer
             ignored_params = list(map(id, self.netD_reid.model.fc.parameters())) + \
                              list(map(id, self.netD_reid.classifier.parameters()))
@@ -94,14 +98,23 @@ class ReidSRcCycleGANModel(BaseModel):
                 {'params': self.netD_reid.classifier.parameters(), 'lr': opt.reid_lr}
             ], weight_decay=5e-4, momentum=0.9, nesterov=True)
 
-            # Decay learning rate by a factor of 0.1 every 40 epochs
-            self.exp_lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer_D_reid,
-                                                                    step_size=40, gamma=0.1)
-            # self.exp_lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer_D_reid,
-            #                                                         step_size=20, gamma=0.1)
-            self.optimizers = []
-            self.optimizers.append(self.optimizer_G)
-            self.optimizers.append(self.optimizer_D)
+            self.optimizer_reid.append(self.optimizer_D_reid)
+
+    def reset_model_status(self):
+        if self.opt.stage==1:
+            self.netG_A.train()
+            self.netG_B.train()
+            self.netD_A.train()
+            self.netD_B.train()
+            # for the BatchNorm
+            self.netD_reid.eval()
+        elif self.opt.stage==0 or self.opt.stage==2:
+            self.netG_A.train()
+            self.netG_B.train()
+            self.netD_A.train()
+            self.netD_B.train()
+            # for the BatchNorm
+            self.netD_reid.train()
 
     def set_input(self, input):
         AtoB = self.opt.direction == 'AtoB'

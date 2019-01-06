@@ -77,8 +77,7 @@ class CycleGANModel(BaseModel):
         self.real_B = input['B' if AtoB else 'A'].to(self.device)
         self.image_paths = input['A_paths' if AtoB else 'B_paths']
         # load the ground-truth high resolution B image to test the SR quality
-        if not self.isTrain:
-            self.GT_B = input['GT_B'].to(self.device)
+        self.GT_B = input['GT_B'].to(self.device)
 
     def forward(self):
         self.fake_B = self.netG_A(self.real_A)

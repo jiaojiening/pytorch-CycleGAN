@@ -14,11 +14,18 @@ from scipy.io import loadmat
 class DukeDataset(BaseDataset):
     @staticmethod
     def modify_commandline_options(parser, is_train):
+        Duke_attr_class_num = [2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+        # Duke_attr_mask = [1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+        Duke_attr_mask = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
         parser.add_argument('--up_scale', type=int, default=4, help='up_scale of the image super-resolution')
         parser.add_argument('--num_attr', type=int, default=23, help='the number of the attributes')
         parser.add_argument('--resize_h', type=int, default=256, help='the size of the height should be resized')
         parser.add_argument('--resize_w', type=int, default=128, help='the size of the width should be resized')
-        parser.add_argument('--num_classes', type=int, default=702, help='The total num of the id classes ')
+        parser.add_argument('--num_classes', type=int, default=702, help='the total num of the id classes')
+        parser.add_argument('--attr_class_num', nargs='+', type=int, help='the number of classes of each attributes')
+        parser.set_defaults(attr_class_num=Duke_attr_class_num)
+        parser.add_argument('--attr_mask', nargs='+', type=int, help='ignore some attributes')
+        parser.set_defaults(attr_mask=Duke_attr_mask)
         return parser
 
     def initialize(self, opt):
@@ -27,6 +34,9 @@ class DukeDataset(BaseDataset):
         self.root = opt.dataroot    # opt.dataroot = DukeMTMC-reID
 
         # load the attributes from the formatted attributes file, total 23 attributes
+        # the number of classes of each attributes
+        # duke_attribute.train.top: 0, 1, 2 (index = 7)  id:[370:165, 679:326], attr:[1, 2]
+        # self.attr_class_num = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
         self.attrFile = os.path.join(self.dataPath, opt.dataroot, 'Duke_attributes.mat')  # get the attributes mat file
         self.total_attr = loadmat(self.attrFile)
         self.train_attr = self.total_attr['train_attr']  # 702 * 23
@@ -44,6 +54,7 @@ class DukeDataset(BaseDataset):
             self.train_id_map = {}
             for i, label in enumerate(list(np.unique(np.array(self.train_labels)))):
                 self.train_id_map[label] = i
+            # print(self.train_id_map)
             # map the train_labels to train_id_labels start from zeros (0-702)
             train_id_labels = list(map(lambda x: self.train_id_map[x], self.train_labels))
 

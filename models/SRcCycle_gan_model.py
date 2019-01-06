@@ -6,6 +6,9 @@ from . import networks
 
 
 class SRcCycleGANModel(BaseModel):
+    '''
+    Both the HR A image and the LR B images have the according attributes
+    '''
     def name(self):
         return 'SRcCycleGANModel'
 

@@ -3,7 +3,7 @@ import itertools
 from util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
-from . import network_reid
+from . import networks_reid
 
 
 class ReidcCycleGANModel(BaseModel):
@@ -31,14 +31,16 @@ class ReidcCycleGANModel(BaseModel):
 
         # specify the training losses you want to print out. The program will call base_model.get_current_losses
         self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B', 'reid']
+        if opt.use_feat:
+            self.loss_names.append('feat')
         # specify the images you want to save/display. The program will call base_model.get_current_visuals
         visual_names_A = ['real_A', 'fake_B', 'rec_A']
         visual_names_B = ['real_B', 'fake_A', 'rec_B', 'GT_B']
         if self.isTrain and self.opt.lambda_identity > 0.0:
             visual_names_A.append('idt_A')
             visual_names_B.append('idt_B')
-
         self.visual_names = visual_names_A + visual_names_B
+
         # specify the models you want to save to the disk. The program will call base_model.save_networks and base_model.load_networks
         if self.isTrain:
             self.model_names = ['G_A', 'G_B', 'D_A', 'D_B', 'D_reid']
@@ -57,7 +59,7 @@ class ReidcCycleGANModel(BaseModel):
                                         not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
 
         # Load a pretrained resnet model and reset the final connected layer
-        self.netD_reid = network_reid.ft_net(opt.num_classes, opt.droprate)
+        self.netD_reid = networks_reid.ft_net(opt.num_classes, opt.droprate)
         # the reid network is trained on a single gpu because of the BatchNorm layer
         self.netD_reid = self.netD_reid.to(self.device)
 
@@ -77,7 +79,6 @@ class ReidcCycleGANModel(BaseModel):
                                             opt.n_layers_D, opt.norm, use_sigmoid, opt.init_type, opt.init_gain, self.gpu_ids,
                                             opt.num_attr)
 
-
         if self.isTrain:
             self.fake_A_pool = ImagePool(opt.pool_size)
             self.fake_B_pool = ImagePool(opt.pool_size)
@@ -93,6 +94,11 @@ class ReidcCycleGANModel(BaseModel):
             self.optimizer_D = torch.optim.Adam(itertools.chain(self.netD_A.parameters(), self.netD_B.parameters()),
                                                 lr=opt.lr, betas=(opt.beta1, 0.999))
 
+            # SR optimizer
+            # self.optimizers = []
+            self.optimizers.append(self.optimizer_G)
+            self.optimizers.append(self.optimizer_D)
+
             # reid optimizer
             ignored_params = list(map(id, self.netD_reid.model.fc.parameters())) + \
                              list(map(id, self.netD_reid.classifier.parameters()))
@@ -103,13 +109,26 @@ class ReidcCycleGANModel(BaseModel):
                 {'params': self.netD_reid.classifier.parameters(), 'lr': opt.reid_lr}
             ], weight_decay=5e-4, momentum=0.9, nesterov=True)
 
+            self.optimizer_reid.append(self.optimizer_D_reid)
             # Decay learning rate by a factor of 0.1 every 40 epochs
-            self.exp_lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer_D_reid,
-                                                                    step_size=40, gamma=0.1)
+            # self.exp_lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer_D_reid,
+            #                                                         step_size=40, gamma=0.1)
 
-            self.optimizers = []
-            self.optimizers.append(self.optimizer_G)
-            self.optimizers.append(self.optimizer_D)
+    def reset_model_status(self):
+        if self.opt.stage==1:
+            self.netG_A.train()
+            self.netG_B.train()
+            self.netD_A.train()
+            self.netD_B.train()
+            # for the BatchNorm
+            self.netD_reid.eval()
+        elif self.opt.stage==0 or self.opt.stage==2:
+            self.netG_A.train()
+            self.netG_B.train()
+            self.netD_A.train()
+            self.netD_B.train()
+            # for the BatchNorm
+            self.netD_reid.train()
 
     def set_input(self, input):
         AtoB = self.opt.direction == 'AtoB'
@@ -128,23 +147,11 @@ class ReidcCycleGANModel(BaseModel):
         # get the id label for person reid
         self.A_label = input['A_label'].to(self.device)
         self.B_label = input['B_label'].to(self.device)
+        # print(self.B_real_attr.size())
 
     def forward(self):
         self.fake_B = self.netG_A(self.real_A)
         # self.rec_A = self.netG_B(self.fake_B)
-
-        # A_real_attr = torch.unsqueeze(self.A_real_attr, 2)  # add a new axis
-        # A_real_attr = A_real_attr.repeat(1, 1, self.fake_B.size()[2] * self.fake_B.size()[3])
-        # A_real_attr = torch.reshape(A_real_attr, (-1, self.num_attr, self.fake_B.size()[2], self.fake_B.size()[3]))
-        # A_real_attr = A_real_attr.float()
-        #
-        # self.comb_input_fake = torch.cat([A_real_attr, self.fake_B], 1)
-        # self.rec_A = self.netG_B(self.comb_input_fake)
-        #
-        # # self.fake_A = self.netG_B(self.real_B)
-        # self.comb_input_real = torch.cat([A_real_attr, self.real_B], 1)
-        # self.fake_A = self.netG_B(self.comb_input_real)
-        # self.rec_B = self.netG_A(self.fake_A)
 
         B_real_attr = torch.unsqueeze(self.B_real_attr, 2)  # add a new axis
         B_real_attr = B_real_attr.repeat(1, 1, self.fake_B.size()[2] * self.fake_B.size()[3])
@@ -262,9 +269,11 @@ class ReidcCycleGANModel(BaseModel):
         loss_reid_real_A = self.criterionReid(self.pred_real_A, self.A_label)
         loss_reid_fake_A = self.criterionReid(self.pred_fake_A, self.B_label)
         self.loss_reid = loss_reid_real_A + loss_reid_fake_A
+        # pull the features of the same person
         if self.use_feat:
-            loss_feat = self.criterionFeat(self.feat_real_A, self.feat_fake_A)
-            self.loss_reid += loss_feat
+            # print(self.feat_real_A.size(), self.feat_fake_A.size())
+            self.loss_feat = self.criterionFeat(self.feat_real_A, self.feat_fake_A)
+            self.loss_reid += self.loss_feat
         self.loss_G = self.loss_G + self.loss_reid
 
         self.loss_G.backward()
@@ -272,16 +281,37 @@ class ReidcCycleGANModel(BaseModel):
     def optimize_parameters(self):
         # forward
         self.forward()
-        # G_A and G_B
-        self.set_requires_grad([self.netD_A, self.netD_B], False)
-        self.optimizer_G.zero_grad()
-        self.optimizer_D_reid.zero_grad()
-        self.backward_G()
-        self.optimizer_G.step()
-        self.optimizer_D_reid.step()
-        # D_A and D_B
-        self.set_requires_grad([self.netD_A, self.netD_B], True)
-        self.optimizer_D.zero_grad()
-        self.backward_D_A()
-        self.backward_D_B()
-        self.optimizer_D.step()
+        # print the parameter names
+        # params = self.netD_reid.classifier.state_dict()
+        # for k, v in params.items():
+        #     if 'classifier' in k:
+        #         print(k)
+        #         print(v)
+        if self.opt.stage == 1:
+            # G_A and G_B
+            # self.set_requires_grad([self.netD_A, self.netD_B], False)
+            self.set_requires_grad([self.netD_A, self.netD_B, self.netD_reid], False)
+            self.optimizer_G.zero_grad()
+            self.backward_G()
+            self.optimizer_G.step()
+            # D_A and D_B
+            self.set_requires_grad([self.netD_A, self.netD_B], True)
+            self.optimizer_D.zero_grad()
+            self.backward_D_A()
+            self.backward_D_B()
+            self.optimizer_D.step()
+        if self.opt.stage == 0 or self.opt.stage == 2:
+            # G_A and G_B
+            self.set_requires_grad([self.netD_A, self.netD_B], False)
+            self.optimizer_G.zero_grad()
+            self.optimizer_D_reid.zero_grad()
+            self.backward_G()
+            self.optimizer_G.step()
+            self.optimizer_D_reid.step()
+            # D_A and D_B
+            self.set_requires_grad([self.netD_A, self.netD_B], True)
+            self.optimizer_D.zero_grad()
+            self.backward_D_A()
+            self.backward_D_B()
+            self.optimizer_D.step()
+
