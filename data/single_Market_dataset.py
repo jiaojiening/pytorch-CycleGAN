@@ -1,8 +1,6 @@
 import os.path
-# from data.base_dataset import BaseDataset, get_transform
-# from data.image_folder import make_dataset
-from data.base_dataset import BaseDataset, get_transforms_reid, get_transform_LR_reid, get_transform_norm_reid
-from data.image_folder import make_dataset, make_reid_dataset
+from data.base_dataset import BaseDataset, get_transforms_reid, get_transforms_LR_reid, get_transforms_norm_reid
+from data.image_folder import make_reid_dataset
 from PIL import Image
 from scipy.io import loadmat
 import numpy as np
@@ -64,11 +62,6 @@ class SingleMarketDataset(BaseDataset):
         if self.dataset_type == 'A':
             self.img_paths = gallery_paths
             self.img_labels = gallery_labels
-            # self.img_attrs = []
-            # for i in gallery_labels:
-            #     # obtain the according id
-            #     attr_id = self.test_attr_map[i]
-            #     self.img_attrs.append(self.test_attr[attr_id])
         else:
             self.img_paths = query_paths
             self.img_labels = query_labels
@@ -79,11 +72,9 @@ class SingleMarketDataset(BaseDataset):
                 self.img_attrs.append(self.test_attr[attr_id])
 
         # A: high-resolution, B: low-resolution
-        # TODO: in base_dataset, maybe return the transform_list
-        self.transform_A = get_transforms_reid(opt, type='A')
-        self.transform_B = get_transforms_reid(opt, type='B')
-        self.transform_LR = get_transform_LR_reid(opt)
-        self.transform_norm = get_transform_norm_reid()
+        self.transform = get_transforms_reid(opt)
+        self.transform_LR = get_transforms_LR_reid(opt)
+        self.transform_norm = get_transforms_norm_reid()
 
     def __getitem__(self, index):
         img_path = self.img_paths[index]
@@ -91,16 +82,20 @@ class SingleMarketDataset(BaseDataset):
         # img = self.transform_A(img)
 
         img_label = self.img_labels[index]
+        # A: high-resolution, B: low-resolution
         if self.dataset_type == 'A':
-            img = self.transform_A(img)
-            GT_img = img
+            # high-resolution image
+            img = self.transform(img)
+            GT_img = self.transform_LR(img) # ground-truth low-resolution image
+            img = self.transform_norm(img)
+            GT_img = self.transform_norm(GT_img)
             # do not need the attributes, do not have the attributes
             img_attr = img_label
         else:
             # low-resolution image
-            img = self.transform_B(img)
-            GT_img = self.transform_norm(img)
-            img = self.transform_LR(img)
+            GT_img = self.transform(img)    # ground-truth high-resolution image
+            img = self.transform_LR(GT_img)
+            GT_img = self.transform_norm(GT_img)
             img = self.transform_norm(img)
             img_attr = self.img_attrs[index]
 

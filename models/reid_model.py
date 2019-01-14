@@ -137,7 +137,7 @@ class ReidModel(BaseModel):
         # add reid loss to update the G_B(LR-HR)
         self.loss_reid_real_A = self.criterionReid(self.pred_real_A, self.A_label)
         self.loss_reid_real_B = self.criterionReid(self.pred_real_B, self.B_label)
-        self.loss_reid = self.loss_reid_real_A + self.loss_reid_real_B
+        self.loss_reid = (self.loss_reid_real_A + self.loss_reid_real_B)/2.0
         self.loss_G = self.loss_reid
         self.loss_G.backward()
 

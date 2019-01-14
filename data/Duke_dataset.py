@@ -1,9 +1,7 @@
 from __future__ import division
 import os.path
-# from data.base_dataset import BaseDataset, get_transform
-# from data.base_dataset import BaseDataset, get_transforms, get_transform_LR, get_transform_norm
-from data.base_dataset import BaseDataset, get_transforms_reid, get_transform_LR_reid, get_transform_norm_reid
-from data.image_folder import make_dataset, make_reid_dataset
+from data.base_dataset import BaseDataset, get_transforms_reid, get_transforms_LR_reid, get_transforms_norm_reid
+from data.image_folder import make_reid_dataset
 from PIL import Image
 import random
 import numpy as np
@@ -128,10 +126,9 @@ class DukeDataset(BaseDataset):
 
         # A: high_resolution, B: low_resolution
         # opt.fineSize = 128, opt.loadSize = 158, need to modify
-        self.transform_A = get_transforms_reid(opt, type='A')
-        self.transform_B = get_transforms_reid(opt, type='B')
-        self.transform_LR = get_transform_LR_reid(opt)
-        self.transform_norm = get_transform_norm_reid()
+        self.transform = get_transforms_reid(opt)
+        self.transform_LR = get_transforms_LR_reid(opt)
+        self.transform_norm = get_transforms_norm_reid()
 
 
     def __getitem__(self, index):
@@ -148,9 +145,14 @@ class DukeDataset(BaseDataset):
         A_img = Image.open(A_path).convert('RGB')
         B_img = Image.open(B_path).convert('RGB')
 
-        A = self.transform_A(A_img)
+        # A = self.transform_A(A_img)
 
-        GT_B = self.transform_B(B_img)  # ground-truth high-resolution
+        A = self.transform(A_img)
+        GT_A = self.transform_LR(A)
+        A = self.transform_norm(A)
+        GT_A = self.transform_norm(GT_A)
+
+        GT_B = self.transform(B_img)  # ground-truth high-resolution
         B = self.transform_LR(GT_B)  # produce the low-resolution images of the GT_B
         # normalize the images
         GT_B = self.transform_norm(GT_B)
@@ -197,7 +199,7 @@ class DukeDataset(BaseDataset):
         A_label = self.A_labels[index_A]
         B_label = self.B_labels[index % self.B_size]
 
-        return {'A': A, 'B': B, 'GT_B': GT_B,
+        return {'A': A, 'B': B, 'GT_A' : GT_A,'GT_B': GT_B,
                 'A_paths': A_path, 'B_paths': B_path,
                 'A_real_attr': A_real_attr, 'A_fake_attr': A_fake_attr,
                 'B_real_attr': B_real_attr, 'B_fake_attr': B_fake_attr,

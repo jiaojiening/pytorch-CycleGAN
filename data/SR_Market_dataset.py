@@ -1,9 +1,7 @@
 from __future__ import division
 import os.path
-# from data.base_dataset import BaseDataset, get_transform
-# from data.base_dataset import BaseDataset, get_transforms, get_transform_LR, get_transform_norm
-from data.base_dataset import BaseDataset, get_transforms_reid, get_transform_LR_reid, get_transform_norm_reid
-from data.image_folder import make_dataset, make_reid_dataset, make_SR_dataset
+from data.base_dataset import BaseDataset, get_transforms_reid, get_transforms_LR_reid, get_transforms_norm_reid
+from data.image_folder import make_reid_dataset, make_SR_dataset
 from PIL import Image
 import random
 import numpy as np
@@ -139,10 +137,8 @@ class SRMarketDataset(BaseDataset):
 
         # A: high_resolution, B: low_resolution
         # opt.fineSize = 128, opt.loadSize = 158, need to modify
-        self.transform_A = get_transforms_reid(opt, type='A')
-        # self.transform_B = get_transforms_reid(opt, type='B')
-        # self.transform_LR = get_transform_LR_reid(opt)
-        # self.transform_norm = get_transform_norm_reid()
+        self.transform = get_transforms_reid(opt)
+        self.transform_norm = get_transforms_norm_reid()
 
 
     def __getitem__(self, index):
@@ -165,8 +161,10 @@ class SRMarketDataset(BaseDataset):
         A_img = Image.open(A_path).convert('RGB')
         B_img = Image.open(B_path).convert('RGB')
 
-        A = self.transform_A(A_img)
-        B = self.transform_A(B_img)
+        A = self.transform(A_img)
+        A = self.transform_norm(A)
+        B = self.transform(B_img)
+        B = self.transform_norm(B)
 
         if self.opt.direction == 'BtoA':
             input_nc = self.opt.output_nc
@@ -210,7 +208,8 @@ class SRMarketDataset(BaseDataset):
     def _get_single_item(self, index):
         img_path = self.img_paths[index]
         img = Image.open(img_path).convert('RGB')
-        img = self.transform_A(img)
+        img = self.transform(img)
+        img = self.transform_norm(img)
 
         if self.opt.direction == 'BtoA':
             input_nc = self.opt.output_nc

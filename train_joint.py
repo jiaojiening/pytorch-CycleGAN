@@ -19,7 +19,6 @@ if __name__ == '__main__':
     # decrease the learning rate
     if opt.stage == 0:
         # load the SR model, the SR lr do not need to decrease
-        # opt.lr = opt.lr * 0.1
         opt.lr = opt.lr
     if opt.stage == 1:
         # opt.lr = opt.lr * 0.1

@@ -8,6 +8,7 @@ python train_reid.py --dataroot DukeMTMC-reID --name SR_Duke_Reid_16_lr_0.01 --d
 python train_reid.py --dataroot DukeMTMC-reID --name SRcCyclegan_Duke_Reid_16_lr_0.01 --dataset_mode SR_Duke --model reid --gpu 0 --no_dropout --SR_name Duke_SRcCyclegan
 python train_reid.py --dataroot DukeMTMC-reID --name paired_cCyclegan_Duke_Reid_16_lr_0.01 --dataset_mode SR_Duke --model reid --gpu 2 --no_dropout --SR_name Duke_paired_cCyclegan
 
+python train_reid.py --dataroot DukeMTMC-reID --name Duke_Reid_NR --dataset_mode Duke --model reid --gpu 0 --no_dropout --NR
 python train_reid.py --dataroot DukeMTMC-reID --name Duke_Reid_upscale_8 --dataset_mode Duke --model reid --gpu 0 --no_dropout --up_scale 8
 python train_reid.py --dataroot DukeMTMC-reID --name Duke_Reid_attr_upscale_8 --dataset_mode Duke --model reid_attr --gpu 3 --up_scale 8 Duke_Reid_upscale_8
 python train_reid.py --dataroot DukeMTMC-reID --name Duke_Reid_attr_upscale_8 --dataset_mode Duke --model reid_attr --gpu 2 --up_scale 8 --reid_name Duke_Reid_upscale_8

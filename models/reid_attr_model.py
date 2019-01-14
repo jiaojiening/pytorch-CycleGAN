@@ -21,8 +21,8 @@ class ReidAttrModel(BaseModel):
             parser.add_argument('--lambda_A', type=float, default=10.0, help='weight for cycle loss (A -> B -> A)')
             parser.add_argument('--lambda_B', type=float, default=10.0,
                                 help='weight for cycle loss (B -> A -> B)')
-            parser.add_argument('--lambda_identity', type=float, default=1.0,
-                                help='use identity mapping. Setting lambda_identity other than 0 has an effect of scaling the weight of the identity mapping loss. For example, if the weight of the identity loss should be 10 times smaller than the weight of the reconstruction loss, please set lambda_identity = 0.1')
+            parser.add_argument('--lambda_reid', type=float, default=1.0,
+                                help='the weight of the reid loss.')
         return parser
 
     def initialize(self, opt):
@@ -130,7 +130,7 @@ class ReidAttrModel(BaseModel):
         self.features = torch.cat((self.features, f), 0)
 
     def backward_loss(self):
-        lambda_identity = self.opt.lambda_identity
+        lambda_reid = self.opt.lambda_reid
 
         _, pred_label_real_A = torch.max(self.pred_real_A, 1)
         _, pred_label_real_B = torch.max(self.pred_real_B, 1)
@@ -170,7 +170,7 @@ class ReidAttrModel(BaseModel):
 
         # self.loss_attr = loss_attr_A + loss_attr_B
         self.loss_attr = (loss_attr_A + loss_attr_B)/2.0
-        self.loss = lambda_identity*self.loss_reid + self.loss_attr
+        self.loss = lambda_reid*self.loss_reid + self.loss_attr
 
         self.loss.backward()
 

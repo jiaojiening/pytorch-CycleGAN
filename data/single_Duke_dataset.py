@@ -1,8 +1,6 @@
 import os.path
-# from data.base_dataset import BaseDataset, get_transform
-# from data.image_folder import make_dataset
-from data.base_dataset import BaseDataset, get_transforms_reid, get_transform_LR_reid, get_transform_norm_reid
-from data.image_folder import make_dataset, make_reid_dataset
+from data.base_dataset import BaseDataset, get_transforms_reid, get_transforms_LR_reid, get_transforms_norm_reid
+from data.image_folder import make_reid_dataset
 from PIL import Image
 from scipy.io import loadmat
 import numpy as np
@@ -11,7 +9,6 @@ import numpy as np
 class SingleDukeDataset(BaseDataset):
     @staticmethod
     def modify_commandline_options(parser, is_train):
-        # parser.add_argument('--dataset_type', type=str, default='A', help='the A set')
         Duke_attr_class_num = [2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
         Duke_attr_mask = [1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
         parser.add_argument('--up_scale', type=int, default=4, help='up_scale of the image super-resolution')
@@ -76,10 +73,9 @@ class SingleDukeDataset(BaseDataset):
                 self.img_attrs.append(self.test_attr[attr_id])
 
         # A: high-resolution, B: low-resolution
-        self.transform_A = get_transforms_reid(opt, type='A')
-        self.transform_B = get_transforms_reid(opt, type='B')
-        self.transform_LR = get_transform_LR_reid(opt)
-        self.transform_norm = get_transform_norm_reid()
+        self.transform = get_transforms_reid(opt)
+        self.transform_LR = get_transforms_LR_reid(opt)
+        self.transform_norm = get_transforms_norm_reid()
 
     def __getitem__(self, index):
         img_path = self.img_paths[index]
@@ -87,13 +83,16 @@ class SingleDukeDataset(BaseDataset):
         # img = self.transform_A(img)
 
         if self.dataset_type == 'A':
-            img = self.transform_A(img)
-            GT_img = img
+            # high-resolution image
+            img = self.transform(img)
+            GT_img = self.transform_LR(img) # ground-truth low-resolution image
+            img = self.transform_norm(img)
+            GT_img = self.transform_norm(GT_img)
         else:
             # low-resolution image
-            img = self.transform_B(img)
-            GT_img = self.transform_norm(img)
-            img = self.transform_LR(img)
+            GT_img = self.transform(img)    # ground-truth high-resolution image
+            img = self.transform_LR(GT_img)
+            GT_img = self.transform_norm(GT_img)
             img = self.transform_norm(img)
 
         if self.opt.direction == 'BtoA':
