@@ -20,7 +20,6 @@ class ReidSRcCycleGANModel(BaseModel):
                                 help='weight for cycle loss (B -> A -> B)')
             parser.add_argument('--lambda_identity', type=float, default=0.5, help='use identity mapping. Setting lambda_identity other than 0 has an effect of scaling the weight of the identity mapping loss. For example, if the weight of the identity loss should be 10 times smaller than the weight of the reconstruction loss, please set lambda_identity = 0.1')
             # reid parameters
-            # parser.add_argument('--num_classes', type=int, default=702, help='The total num of the id classes ')
             parser.add_argument('--droprate', type=float, default=0.5, help='the dropout ratio in reid model')
         return parser
 
@@ -120,14 +119,13 @@ class ReidSRcCycleGANModel(BaseModel):
         AtoB = self.opt.direction == 'AtoB'
         self.real_A = input['A' if AtoB else 'B'].to(self.device)
         self.real_B = input['B' if AtoB else 'A'].to(self.device)
-        self.image_paths = input['A_paths' if AtoB else 'B_paths']
+        self.image_paths = input['A_paths']
         # add the conditional attributes vector
         self.A_real_attr = input['A_real_attr'].to(self.device)
         self.A_fake_attr = input['A_fake_attr'].to(self.device)
         self.B_real_attr = input['B_real_attr'].to(self.device)
 
         # load the ground-truth high resolution B image to test the SR quality
-        # if not self.isTrain:
         self.GT_B = input['GT_B'].to(self.device)
 
         # get the id label for person reid

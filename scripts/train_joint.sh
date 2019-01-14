@@ -62,10 +62,17 @@ python train_joint.py --dataroot DukeMTMC-reID \
 --up_scale 8 --gpu 0,1 --no_dropout --batch_size 12 --netG resnet_6blocks --stage 0
 
 python train_joint.py --dataroot Market \
---name Market_reid_SRcCyclegan_upscale_8_resnet_6blocks_stage0_lr_0.1 \
+--name Market_reid_SRcCyclegan_upscale_8_resnet_6blocks_stage0 \
 --SR_name Market_SRcCyclegan_upscale_8_resnet_6blocks \
 --reid_name SRcCyclegan_Market_Reid_upscale_8_resnet_6blocks \
 --dataset_mode Market --model reid_SRcCycle_gan \
+--up_scale 8 --gpu 0,7 --no_dropout --batch_size 12 --netG resnet_6blocks --stage 0
+
+python train_joint.py --dataroot Market \
+--name Market_reid_attr_SRcCyclegan_upscale_8_resnet_6blocks_stage0 \
+--SR_name Market_SRcCyclegan_upscale_8_resnet_6blocks \
+--reid_name SRcCyclegan_Market_Reid_upscale_8_resnet_6blocks \
+--dataset_mode Market --model reid_attr_SRcCycle_gan \
 --up_scale 8 --gpu 0,7 --no_dropout --batch_size 12 --netG resnet_6blocks --stage 0
 
 python train_joint.py --dataroot Market \

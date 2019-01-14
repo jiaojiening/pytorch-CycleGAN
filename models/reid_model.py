@@ -14,8 +14,6 @@ class ReidModel(BaseModel):
         # default CycleGAN did not use dropout
         parser.set_defaults(no_dropout=True)
         # reid parameters, put the parameter num_classes in the dataset
-        # parser.add_argument('--num_classes', type=int, default=702, help='The total num of the id classes ')
-        # parser.add_argument('--num_classes', type=int, default=751, help='The total num of the id classes ')
         parser.add_argument('--droprate', type=float, default=0.5, help='the dropout ratio in reid model')
         parser.add_argument('--NR', action='store_true', help='use the normal resolution dataset')
         if is_train:
@@ -23,8 +21,6 @@ class ReidModel(BaseModel):
             parser.add_argument('--lambda_B', type=float, default=10.0,
                                 help='weight for cycle loss (B -> A -> B)')
             parser.add_argument('--lambda_identity', type=float, default=0.5, help='use identity mapping. Setting lambda_identity other than 0 has an effect of scaling the weight of the identity mapping loss. For example, if the weight of the identity loss should be 10 times smaller than the weight of the reconstruction loss, please set lambda_identity = 0.1')
-            # reid learning rate
-            # parser.add_argument('--reid_lr', type=float, default=0.1, help='initial reid learning rate for adam')
         return parser
 
     def initialize(self, opt):
@@ -75,7 +71,9 @@ class ReidModel(BaseModel):
         if self.isTrain:
             # AtoB = self.opt.direction == 'AtoB'
             self.real_A = input['A'].to(self.device)
-            # train on the normal resolution B set
+            self.GT_A = input['GT_A'].to(self.device)
+
+            # train on the normal resolution B set if NR
             self.real_B = input['B' if not self.opt.NR else 'GT_B'].to(self.device)
 
             # get the id label for person reid
@@ -94,6 +92,7 @@ class ReidModel(BaseModel):
             # training: 1 * num_classes prediction vector,
             # test: 1 * 2048 feature vector
             self.pred_real_A = self.netD_reid(self.real_A)  # A_label HR
+            self.pred_GT_A = self.netD_reid(self.GT_A)  # A_label LR
             self.pred_real_B = self.netD_reid(self.real_B)  # B_label LR
         else:
             # Remove the final fc layer and classifier layer
@@ -137,7 +136,14 @@ class ReidModel(BaseModel):
         # add reid loss to update the G_B(LR-HR)
         self.loss_reid_real_A = self.criterionReid(self.pred_real_A, self.A_label)
         self.loss_reid_real_B = self.criterionReid(self.pred_real_B, self.B_label)
-        self.loss_reid = (self.loss_reid_real_A + self.loss_reid_real_B)/2.0
+
+        # self.loss_reid = (self.loss_reid_real_A + self.loss_reid_real_B)/2.0
+
+        _, pred_label_GT_A = torch.max(self.pred_GT_A, 1)
+        self.corrects_GT_A += float(torch.sum(pred_label_GT_A == self.A_label))
+        self.loss_reid_GT_A = self.criterionReid(self.pred_GT_A, self.A_label)
+        self.loss_reid = (self.loss_reid_real_A + self.loss_reid_real_B + self.corrects_GT_A) / 3.0
+
         self.loss_G = self.loss_reid
         self.loss_G.backward()
 

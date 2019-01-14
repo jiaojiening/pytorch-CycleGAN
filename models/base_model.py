@@ -145,6 +145,7 @@ class BaseModel():
         corrects_attr_A = self.corrects_attr_A
         corrects_attr_B = self.corrects_attr_B
         self.corrects_A = 0
+        self.corrects_GT_A = 0
         self.corrects_B = 0
         self.corrects_attr_A = self.num_attr * [0.0]
         self.corrects_attr_B = self.num_attr * [0.0]
