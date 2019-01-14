@@ -59,16 +59,18 @@ class ReidAttrModel(BaseModel):
             ignored_params = list(map(id, self.netD_reid.model.fc.parameters())) + \
                              list(map(id, self.netD_reid.classifier.parameters()))
 
-            # print the parameter names
+            # # print the parameter names
             # params = self.netD_reid.classifier.state_dict()
             # for k, v in params.items():
             #     print(k)
 
             base_params = filter(lambda p: id(p) not in ignored_params, self.netD_reid.parameters())
+            opt.reid_lr = opt.reid_lr * 0.1
             self.optimizer_D_reid = torch.optim.SGD([
                 {'params': base_params, 'lr': 0.1*opt.reid_lr},
-                {'params': self.netD_reid.model.fc.parameters(), 'lr': opt.reid_lr},
-                {'params': self.netD_reid.classifier.parameters(), 'lr': opt.reid_lr}
+                # {'params': self.netD_reid.classifier.parameters(), 'lr': opt.reid_lr}
+                {'params': self.netD_reid.classifier.classifier.parameters(), 'lr': 0.1 * opt.reid_lr},
+                {'params': self.netD_reid.classifier.attr_classifiers.parameters(), 'lr': opt.reid_lr}
             ], weight_decay=5e-4, momentum=0.9, nesterov=True)
 
             self.optimizer_reid.append(self.optimizer_D_reid)
@@ -76,7 +78,10 @@ class ReidAttrModel(BaseModel):
             # self.exp_lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer_D_reid,
             #                                                         step_size=40, gamma=0.1)
             # self.exp_lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer_D_reid,
-                                                                    # step_size=20, gamma=0.1)
+                                                               # step_size=20, gamma=0.1)
+
+            # load the pre-trained reid model
+            self.setup_attr(opt)
 
     def set_input(self, input):
         if self.isTrain:

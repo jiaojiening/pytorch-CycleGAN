@@ -6,9 +6,9 @@ from . import networks
 from . import networks_reid
 
 
-class ReidcCycleGANModel(BaseModel):
+class ReidcycleGANModel(BaseModel):
     def name(self):
-        return 'ReidcCycleGANModel'
+        return 'ReidcycleGANModel'
 
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
@@ -23,7 +23,7 @@ class ReidcCycleGANModel(BaseModel):
             parser.add_argument('--droprate', type=float, default=0.5, help='the dropout ratio in reid model')
             # use feat_loss
             parser.add_argument('--use_feat', action='store_true', help='use feature loss')
-            parser.add_argument('--lambda_feat', type=float, default=0.001, help='weight for feature loss')
+            # parser.add_argument('--lambda_feat', type=float, default=1.0, help='weight for feature loss')
         return parser
 
     def initialize(self, opt):
@@ -54,8 +54,8 @@ class ReidcCycleGANModel(BaseModel):
         # Code (paper): G_A (G), G_B (F), D_A (D_Y), D_B (D_X)
         self.netG_A = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm,
                                         not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
-        # Input: B(low-resolution) + attributes of B(high-resolution)
-        self.netG_B = networks.define_G(opt.output_nc + opt.num_attr, opt.input_nc, opt.ngf, opt.netG, opt.norm,
+        # Input: B(low-resolution)
+        self.netG_B = networks.define_G(opt.output_nc, opt.input_nc, opt.ngf, opt.netG, opt.norm,
                                         not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
 
         # Load a pretrained resnet model and reset the final connected layer
@@ -67,17 +67,9 @@ class ReidcCycleGANModel(BaseModel):
             use_sigmoid = opt.no_lsgan
             self.netD_A = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
                                             opt.n_layers_D, opt.norm, use_sigmoid, opt.init_type, opt.init_gain, self.gpu_ids)
-            # Input1: A(high-resolution) + attribute of A(high-resolution)
-            # Input2: fake_A + attribute of A(high-resolution)
-            # Input3: A(high-resolution) + random sampled attribute
-            #
-            # Input1: A(high-resolution) + attribute of B(high-resolution)
-            # Input2: fake_A + attribute of B(high-resolution)
-            # Input3: A(high-resolution) + random sampled attribute(B_fake_attr)
-            condit_netD = 'conditional_basic'
-            self.netD_B = networks.define_D(opt.input_nc, opt.ndf, condit_netD,
-                                            opt.n_layers_D, opt.norm, use_sigmoid, opt.init_type, opt.init_gain, self.gpu_ids,
-                                            opt.num_attr)
+
+            self.netD_B = networks.define_D(opt.input_nc, opt.ndf, opt.netD,
+                                            opt.n_layers_D, opt.norm, use_sigmoid, opt.init_type, opt.init_gain, self.gpu_ids)
 
         if self.isTrain:
             self.fake_A_pool = ImagePool(opt.pool_size)
@@ -86,11 +78,8 @@ class ReidcCycleGANModel(BaseModel):
             self.criterionGAN = networks.GANLoss(use_lsgan=not opt.no_lsgan).to(self.device)
             self.criterionCycle = torch.nn.L1Loss()
             self.criterionIdt = torch.nn.L1Loss()
-            # reid relative loss
             self.criterionReid = torch.nn.CrossEntropyLoss()
-            self.criterionFeat = torch.nn.L1Loss()
-            # self.criterionFeat = torch.nn.MSELoss()
-
+            self.criterionFeat = torch.nn.MSELoss()
             # initialize optimizers
             self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG_A.parameters(), self.netG_B.parameters()),
                                                 lr=opt.lr, betas=(opt.beta1, 0.999))
@@ -138,11 +127,6 @@ class ReidcCycleGANModel(BaseModel):
         self.real_A = input['A' if AtoB else 'B'].to(self.device)
         self.real_B = input['B' if AtoB else 'A'].to(self.device)
         self.image_paths = input['A_paths' if AtoB else 'B_paths']
-        # add the conditional attributes vector
-        # self.A_real_attr = input['A_real_attr'].to(self.device)
-        # self.A_fake_attr = input['A_fake_attr'].to(self.device)
-        self.B_real_attr = input['B_real_attr'].to(self.device)
-        self.B_fake_attr = input['B_fake_attr'].to(self.device)
 
         # load the ground-truth high resolution B image to test the SR quality
         self.GT_B = input['GT_B'].to(self.device)
@@ -154,23 +138,13 @@ class ReidcCycleGANModel(BaseModel):
 
     def forward(self):
         self.fake_B = self.netG_A(self.real_A)
-        # self.rec_A = self.netG_B(self.fake_B)
+        self.rec_A = self.netG_B(self.fake_B)
 
-        B_real_attr = torch.unsqueeze(self.B_real_attr, 2)  # add a new axis
-        B_real_attr = B_real_attr.repeat(1, 1, self.fake_B.size()[2] * self.fake_B.size()[3])
-        B_real_attr = torch.reshape(B_real_attr, (-1, self.num_attr, self.fake_B.size()[2], self.fake_B.size()[3]))
-        B_real_attr = B_real_attr.float()
-
-        self.comb_input_fake = torch.cat([B_real_attr, self.fake_B], 1)
-        self.rec_A = self.netG_B(self.comb_input_fake)
-
-        self.comb_input_real = torch.cat([B_real_attr, self.real_B], 1)
-        self.fake_A = self.netG_B(self.comb_input_real)
+        self.fake_A = self.netG_B(self.real_B)
         self.rec_B = self.netG_A(self.fake_A)
 
         # person re-id prediction of HR images
         # more strong than the D_B loss
-        # self.netD_reid = self.netD_reid.train()
         self.pred_real_A = self.netD_reid(self.real_A)  # A_label HR
         self.feat_real_A = self.netD_reid.get_feature()
         self.pred_fake_A = self.netD_reid(self.fake_A)  # B_label HR
@@ -199,33 +173,13 @@ class ReidcCycleGANModel(BaseModel):
         loss_D.backward()
         return loss_D
 
-    def backward_D_condit(self, netD, real, fake, real_attr, fake_attr):
-        # Real
-        pred_real = netD(real, real_attr)
-        loss_D_real = self.criterionGAN(pred_real, True)
-
-        # Fake
-        pred_fake_1 = netD(fake.detach(), real_attr)
-        loss_D_fake_1 = self.criterionGAN(pred_fake_1, False)
-        pred_fake_2 = netD(real, fake_attr)
-        loss_D_fake_2 = self.criterionGAN(pred_fake_2, False)
-        loss_D_fake = (loss_D_fake_1 + loss_D_fake_2) * 0.5
-
-        # Combined loss
-        loss_D = (loss_D_real + loss_D_fake) * 0.5
-        # backward
-        loss_D.backward()
-        return loss_D
-
-
     def backward_D_A(self):
         fake_B = self.fake_B_pool.query(self.fake_B)
         self.loss_D_A = self.backward_D_basic(self.netD_A, self.real_B, fake_B)
 
     def backward_D_B(self):
         fake_A = self.fake_A_pool.query(self.fake_A)
-        # self.loss_D_B = self.backward_D_condit(self.netD_B, self.real_A, fake_A, self.A_real_attr, self.A_fake_attr)
-        self.loss_D_B = self.backward_D_condit(self.netD_B, self.real_A, fake_A, self.B_real_attr, self.B_fake_attr)
+        self.loss_D_B = self.backward_D_basic(self.netD_B, self.real_A, fake_A)
 
     def backward_G(self):
         lambda_idt = self.opt.lambda_identity
@@ -237,14 +191,7 @@ class ReidcCycleGANModel(BaseModel):
             self.idt_A = self.netG_A(self.real_B)
             self.loss_idt_A = self.criterionIdt(self.idt_A, self.real_B) * lambda_B * lambda_idt
             # G_B should be identity if real_A is fed.
-
-            B_real_attr = torch.unsqueeze(self.B_real_attr, 2)  # add a new axis
-            B_real_attr = B_real_attr.repeat(1, 1, self.real_A.size()[2] * self.real_A.size()[3])
-            B_real_attr = torch.reshape(B_real_attr, (-1, self.num_attr, self.real_A.size()[2], self.real_A.size()[3]))
-            B_real_attr = B_real_attr.float()
-            self.comb_real_A = torch.cat([B_real_attr, self.real_A], 1)
-
-            self.idt_B = self.netG_B(self.comb_real_A)
+            self.idt_B = self.netG_B(self.real_A)
             self.loss_idt_B = self.criterionIdt(self.idt_B, self.real_A) * lambda_A * lambda_idt
         else:
             self.loss_idt_A = 0
@@ -253,8 +200,7 @@ class ReidcCycleGANModel(BaseModel):
         # GAN loss D_A(G_A(A))
         self.loss_G_A = self.criterionGAN(self.netD_A(self.fake_B), True)
         # GAN loss D_B(G_B(B))
-        # self.loss_G_B = self.criterionGAN(self.netD_B(self.fake_A, self.A_real_attr), True)
-        self.loss_G_B = self.criterionGAN(self.netD_B(self.fake_A, self.B_real_attr), True)
+        self.loss_G_B = self.criterionGAN(self.netD_B(self.fake_A), True)
         # Forward cycle loss
         self.loss_cycle_A = self.criterionCycle(self.rec_A, self.real_A) * lambda_A
         # Backward cycle loss
@@ -275,9 +221,7 @@ class ReidcCycleGANModel(BaseModel):
         # pull the features of the same person
         if self.use_feat:
             # print(self.feat_real_A.size(), self.feat_fake_A.size())
-            # print(self.feat_real_A, self.feat_fake_A.size)
-            self.loss_feat = self.criterionFeat(self.feat_real_A, self.feat_fake_A)*self.opt.lambda_feat
-            # print(self.loss_feat)
+            self.loss_feat = self.criterionFeat(self.feat_real_A, self.feat_fake_A)
             self.loss_reid += self.loss_feat
         self.loss_G = self.loss_G + self.loss_reid
 
@@ -319,4 +263,3 @@ class ReidcCycleGANModel(BaseModel):
             self.backward_D_A()
             self.backward_D_B()
             self.optimizer_D.step()
-

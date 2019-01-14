@@ -149,14 +149,16 @@ class AttrClassBlock(nn.Module):
             attr_classifiers.append(each_attr_classifier)
 
         self.add_block = add_block
-        self.id_classifier = id_classifier
+        # self.id_classifier = id_classifier
+        self.classifier = id_classifier
         self.attr_classifiers = attr_classifiers
 
     def forward(self, x):
         x = self.add_block(x)
         if self.return_f:
             f = x       # 512 features
-            id_x = self.id_classifier(x)
+            # id_x = self.id_classifier(x)
+            id_x = self.classifier(x)
             # attributes classifier
             attr_x = []
             for each_attr_classifier in self.attr_classifiers:
@@ -164,7 +166,8 @@ class AttrClassBlock(nn.Module):
             attr_x = torch.cat(attr_x)
             return id_x, attr_x, f
         else:
-            id_x = self.id_classifier(x)
+            # id_x = self.id_classifier(x)
+            id_x = self.classifier(x)
             # print(x.is_cuda)
             # attributes classifier
             attr_x = []

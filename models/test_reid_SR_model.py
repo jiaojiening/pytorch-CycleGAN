@@ -56,6 +56,8 @@ class TestReidSRModel(BaseModel):
         comb_input_real = torch.cat([B_real_attr, self.real_B], 1)
 
         self.fake_A = self.netG_B(comb_input_real)
+        # self.fake_A = self.netG_B(self.real_B)
+
         # set the fake_A for reid
         self.img = self.fake_A
 

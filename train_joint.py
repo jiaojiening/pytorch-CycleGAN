@@ -17,11 +17,16 @@ if __name__ == '__main__':
     print('#training images = %d' % dataset_size)
 
     # decrease the learning rate
+    if opt.stage == 0:
+        # load the SR model, the SR lr do not need to decrease
+        # opt.lr = opt.lr * 0.1
+        opt.lr = opt.lr
     if opt.stage == 1:
-        opt.lr = opt.lr * 0.1
-    if opt.stage == 2:
-        opt.lr = opt.lr * 0.1
+        # opt.lr = opt.lr * 0.1
         opt.reid_lr = opt.reid_lr * 0.1
+    if opt.stage == 2:
+        opt.lr = opt.lr * 0.01
+        opt.reid_lr = opt.reid_lr * 0.01
     opt.continue_train = True
 
     model = create_model(opt)

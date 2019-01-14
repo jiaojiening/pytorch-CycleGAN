@@ -74,20 +74,9 @@ class BaseModel():
             self.load_networks(load_suffix)
         self.print_networks(opt.verbose)
 
-        # # load and print networks; create schedulers
-        # def setup(self, opt, parser=None):
-        #     if self.isTrain:
-        #         self.schedulers = [networks.get_scheduler(optimizer, opt.lr_policy, opt) for optimizer in
-        #                            self.optimizers]
-        #         # add the optimizer_reid
-        #         # self.schedulers.extend(
-        #         #     networks.get_scheduler(optimizer, opt.reid_lr_policy, opt) for optimizer in self.optimizer_reid)
-        #         if len(self.optimizer_reid) > 0:
-        #             self.schedulers.append(networks.get_scheduler(self.optimizer_reid[0], opt.reid_lr_policy, opt))
-        #     if not self.isTrain or opt.continue_train:
-        #         load_suffix = 'iter_%d' % opt.load_iter if opt.load_iter > 0 else opt.epoch
-        #         self.load_networks(load_suffix)
-        #     self.print_networks(opt.verbose)
+    def setup_attr(self, opt):
+        load_suffix = 'iter_%d' % opt.load_iter if opt.load_iter > 0 else opt.epoch
+        self.load_reid_networks(load_suffix)
 
     # load pre-trained networks
     # initialization for different stage in joint training,
@@ -224,6 +213,7 @@ class BaseModel():
                     torch.save(net.cpu().state_dict(), save_path)
 
     def __patch_instance_norm_state_dict(self, state_dict, module, keys, i=0):
+        # print(module.__class__.__name__)
         key = keys[i]
         if i + 1 == len(keys):  # at the end, pointing to a parameter/buffer
             if module.__class__.__name__.startswith('InstanceNorm') and \
@@ -277,6 +267,7 @@ class BaseModel():
 
                 # patch InstanceNorm checkpoints prior to 0.4
                 for key in list(state_dict.keys()):  # need to copy keys here because we mutate in loop
+                    # print(key)
                     self.__patch_instance_norm_state_dict(state_dict, net, key.split('.'))
                 net.load_state_dict(state_dict)
 
@@ -298,8 +289,16 @@ class BaseModel():
 
                 # patch InstanceNorm checkpoints prior to 0.4
                 for key in list(state_dict.keys()):  # need to copy keys here because we mutate in loop
+                    # print(key)
                     self.__patch_instance_norm_state_dict(state_dict, net, key.split('.'))
-                net.load_state_dict(state_dict)
+
+                if self.opt.model == 'reid_attr':
+                    # the loaded state_dict have partial params of the net, which is missing some keys
+                    state = net.state_dict()
+                    state.update(state_dict)
+                    net.load_state_dict(state)
+                else:
+                    net.load_state_dict(state_dict)
 
     # print network information
     def print_networks(self, verbose):

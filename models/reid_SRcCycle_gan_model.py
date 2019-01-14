@@ -162,7 +162,6 @@ class ReidSRcCycleGANModel(BaseModel):
 
         # person re-id prediction of HR images
         # more strong than the D_B loss
-        self.netD_reid = self.netD_reid.train()
         self.pred_real_A = self.netD_reid(self.real_A)   # A_label HR
         self.pred_fake_A = self.netD_reid(self.fake_A)   # B_label HR
 
@@ -268,16 +267,30 @@ class ReidSRcCycleGANModel(BaseModel):
     def optimize_parameters(self):
         # forward
         self.forward()
-        # G_A and G_B
-        self.set_requires_grad([self.netD_A, self.netD_B], False)
-        self.optimizer_G.zero_grad()
-        self.optimizer_D_reid.zero_grad()
-        self.backward_G()
-        self.optimizer_G.step()
-        self.optimizer_D_reid.step()
-        # D_A and D_B
-        self.set_requires_grad([self.netD_A, self.netD_B], True)
-        self.optimizer_D.zero_grad()
-        self.backward_D_A()
-        self.backward_D_B()
-        self.optimizer_D.step()
+        if self.opt.stage == 1:
+            # G_A and G_B
+            # self.set_requires_grad([self.netD_A, self.netD_B], False)
+            self.set_requires_grad([self.netD_A, self.netD_B, self.netD_reid], False)
+            self.optimizer_G.zero_grad()
+            self.backward_G()
+            self.optimizer_G.step()
+            # D_A and D_B
+            self.set_requires_grad([self.netD_A, self.netD_B], True)
+            self.optimizer_D.zero_grad()
+            self.backward_D_A()
+            self.backward_D_B()
+            self.optimizer_D.step()
+        if self.opt.stage == 0 or self.opt.stage == 2:
+            # G_A and G_B
+            self.set_requires_grad([self.netD_A, self.netD_B], False)
+            self.optimizer_G.zero_grad()
+            self.optimizer_D_reid.zero_grad()
+            self.backward_G()
+            self.optimizer_G.step()
+            self.optimizer_D_reid.step()
+            # D_A and D_B
+            self.set_requires_grad([self.netD_A, self.netD_B], True)
+            self.optimizer_D.zero_grad()
+            self.backward_D_A()
+            self.backward_D_B()
+            self.optimizer_D.step()
