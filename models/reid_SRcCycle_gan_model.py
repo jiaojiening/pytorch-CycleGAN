@@ -125,6 +125,7 @@ class ReidSRcCycleGANModel(BaseModel):
         self.A_fake_attr = input['A_fake_attr'].to(self.device)
         self.B_real_attr = input['B_real_attr'].to(self.device)
 
+        self.GT_A = input['GT_A'].to(self.device)  # low-resolution
         # load the ground-truth high resolution B image to test the SR quality
         self.GT_B = input['GT_B'].to(self.device)
 
@@ -160,8 +161,17 @@ class ReidSRcCycleGANModel(BaseModel):
 
         # person re-id prediction of HR images
         # more strong than the D_B loss
-        self.pred_real_A = self.netD_reid(self.real_A)   # A_label HR
-        self.pred_fake_A = self.netD_reid(self.fake_A)   # B_label HR
+        # self.pred_real_A = self.netD_reid(self.real_A)   # A_label HR
+        # self.pred_fake_A = self.netD_reid(self.fake_A)   # B_label HR
+        # self.pred_fake_B = self.netD_reid(self.fake_B)   # A_label LR
+
+        # self.imags = torch.cat([self.real_A, self.real_B, self.GT_A], 0)
+        # self.imags = torch.cat([self.real_A, self.fake_A, self.fake_B], 0)
+        # self.labels = torch.cat([self.A_label, self.B_label, self.A_label], 0)
+
+        self.imags = torch.cat([self.real_A, self.fake_A], 0)
+        self.labels = torch.cat([self.A_label, self.B_label], 0)
+        self.pred_imgs = self.netD_reid(self.imags)
 
     def psnr_eval(self):
         # compute the PSNR for the test
@@ -248,18 +258,24 @@ class ReidSRcCycleGANModel(BaseModel):
         # combined loss
         self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B
 
-        # add reid loss to update the G_B(LR-HR)
-        _, pred_label_real_A = torch.max(self.pred_real_A, 1)
-        _, pred_label_fake_A = torch.max(self.pred_fake_A, 1)
-        self.corrects_A += float(torch.sum(pred_label_real_A == self.A_label))
-        self.corrects_B += float(torch.sum(pred_label_fake_A == self.B_label))
+        # # add reid loss to update the G_B(LR-HR)
+        # _, pred_label_real_A = torch.max(self.pred_real_A, 1)
+        # _, pred_label_fake_A = torch.max(self.pred_fake_A, 1)
+        # self.corrects_A += float(torch.sum(pred_label_real_A == self.A_label))
+        # self.corrects_B += float(torch.sum(pred_label_fake_A == self.B_label))
+        #
+        # # add reid loss to update the G_B(LR-HR)
+        # loss_reid_real_A = self.criterionReid(self.pred_real_A, self.A_label)
+        # loss_reid_fake_A = self.criterionReid(self.pred_fake_A, self.B_label)
+        # # self.loss_reid = loss_reid_real_A + loss_reid_fake_A
+        # loss_reid_fake_B = self.criterionReid(self.pred_fake_B, self.A_label)
+        # self.loss_reid = loss_reid_real_A + loss_reid_fake_A + loss_reid_fake_B
 
-        # add reid loss to update the G_B(LR-HR)
-        loss_reid_real_A = self.criterionReid(self.pred_real_A, self.A_label)
-        loss_reid_fake_A = self.criterionReid(self.pred_fake_A, self.B_label)
-        self.loss_reid = loss_reid_real_A + loss_reid_fake_A
+        _, pred_label_imgs = torch.max(self.pred_imgs, 1)
+        self.corrects += float(torch.sum(pred_label_imgs == self.labels))
+        self.loss_reid = self.criterionReid(self.pred_imgs, self.labels)
+
         self.loss_G = self.loss_G + self.loss_reid
-
         self.loss_G.backward()
 
     def optimize_parameters(self):

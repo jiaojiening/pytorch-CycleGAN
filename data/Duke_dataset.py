@@ -145,10 +145,9 @@ class DukeDataset(BaseDataset):
         A_img = Image.open(A_path).convert('RGB')
         B_img = Image.open(B_path).convert('RGB')
 
-        # A = self.transform_A(A_img)
-
         A = self.transform(A_img)
         GT_A = self.transform_LR(A)
+        # normalize the images
         A = self.transform_norm(A)
         GT_A = self.transform_norm(GT_A)
 
@@ -199,7 +198,7 @@ class DukeDataset(BaseDataset):
         A_label = self.A_labels[index_A]
         B_label = self.B_labels[index % self.B_size]
 
-        return {'A': A, 'B': B, 'GT_A' : GT_A,'GT_B': GT_B,
+        return {'A': A, 'B': B, 'GT_A': GT_A,'GT_B': GT_B,
                 'A_paths': A_path, 'B_paths': B_path,
                 'A_real_attr': A_real_attr, 'A_fake_attr': A_fake_attr,
                 'B_real_attr': B_real_attr, 'B_fake_attr': B_fake_attr,

@@ -27,10 +27,14 @@ class TestReidSRModel(BaseModel):
         self.num_attr = opt.num_attr
 
         # low-resolution to high-resolution
-        # self.netG_B = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG,
-        #                               opt.norm, not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
         self.netG_B = networks.define_G(opt.output_nc + opt.num_attr, opt.input_nc, opt.ngf, opt.netG, opt.norm,
                                         not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
+
+        # if 'attr' in opt.name:
+        #     print('define the reid attributes  model')
+        #     self.netD_reid = networks_reid.ft_attr_net(opt.num_classes, opt.attr_class_num)
+        # else:
+        #     self.netD_reid = networks_reid.ft_net(opt.num_classes)
 
         self.netD_reid = networks_reid.ft_net(opt.num_classes)
         self.netD_reid = self.netD_reid.to(self.device)

@@ -58,11 +58,14 @@ if __name__ == '__main__':
             model.save_networks('latest')
             model.save_networks(epoch)
 
-        accuracy_A, accuracy_B, accuracy_attr_A, accuracy_attr_B = model.compute_corrects()
-        accuracy_A = accuracy_A / len(dataset)
-        accuracy_B = accuracy_B / len(dataset)
-        accuracy_attr_A = [accu_attr / len(dataset) for accu_attr in accuracy_attr_A]
-        accuracy_attr_B = [accu_attr / len(dataset) for accu_attr in accuracy_attr_B]
+        accuracy_reid, accuracy_attr = model.compute_corrects()
+        accuracy_A = accuracy_reid[0] / len(dataset)
+        accuracy_B = accuracy_reid[1] / len(dataset)
+        accuracy_GT_A = accuracy_reid[2] / len(dataset)
+        accuracy_reid_total = accuracy_reid[3] / (len(dataset)*3.0)
+        accuracy_attr_A = [accu_attr / len(dataset) for accu_attr in accuracy_attr[0]]
+        accuracy_attr_B = [accu_attr / len(dataset) for accu_attr in accuracy_attr[1]]
+        print('The total accuracy of reid: %f ' % (accuracy_reid_total))
         print('The accuracy of A: %f, the accuracy of B: %f' % (accuracy_A, accuracy_B))
         print('The accuracy of the attributes A:', accuracy_attr_A)
         print('The accuracy of the attributes B:', accuracy_attr_B)

@@ -37,8 +37,10 @@ class BaseModel():
         self.bicubic_psnr = 0
         self.ssim = 0
         self.bicubic_ssim = 0
+        self.corrects = 0
         self.corrects_A = 0
         self.corrects_B = 0
+        self.corrects_GT_A = 0
         self.num_attr = opt.num_attr
         self.corrects_attr_A = opt.num_attr * [0.0]
         self.corrects_attr_B = self.num_attr * [0.0]
@@ -140,16 +142,27 @@ class BaseModel():
 
     # update learning rate (called once every epoch)
     def compute_corrects(self):
-        corrects_A = self.corrects_A
-        corrects_B = self.corrects_B
-        corrects_attr_A = self.corrects_attr_A
-        corrects_attr_B = self.corrects_attr_B
+        # corrects_A = self.corrects_A
+        # corrects_B = self.corrects_B
+        # corrects_GT_A = self.corrects_GT_A
+        # corrects = self.corrects
+        corrects_reid = []
+        corrects_reid.append(self.corrects_A)
+        corrects_reid.append(self.corrects_B)
+        corrects_reid.append(self.corrects_GT_A)
+        corrects_reid.append(self.corrects)
+        # corrects_attr_A = self.corrects_attr_A
+        # corrects_attr_B = self.corrects_attr_B
+        corrects_attr = []
+        corrects_attr.append(self.corrects_attr_A)
+        corrects_attr.append(self.corrects_attr_B)
         self.corrects_A = 0
         self.corrects_GT_A = 0
         self.corrects_B = 0
+        self.corrects = 0
         self.corrects_attr_A = self.num_attr * [0.0]
         self.corrects_attr_B = self.num_attr * [0.0]
-        return corrects_A, corrects_B, corrects_attr_A, corrects_attr_B
+        return corrects_reid, corrects_attr
 
     # get image paths
     def get_image_paths(self):
@@ -168,13 +181,6 @@ class BaseModel():
         if len(self.optimizer_reid) > 0:
             reid_lr = self.optimizer_reid[0].param_groups[0]['lr']
             print('reid learning rate = %.7f' % reid_lr)
-
-    # # update reid learning rate (called once every epoch)
-    # def update_reid_learning_rate(self):
-    #     # update the reid learing rate scheduler
-    #     self.exp_lr_scheduler.step()
-    #     reid_lr = self.optimizer_D_reid.param_groups[0]['lr']
-    #     print('reid learning rate = %.7f' % reid_lr)
 
     # return visualization images. train.py will display these images, and save the images to a html
     def get_current_visuals(self):
@@ -243,6 +249,19 @@ class BaseModel():
                 if hasattr(state_dict, '_metadata'):
                     del state_dict._metadata
 
+                if name == 'D_reid' and 'attr' in self.opt.name:
+                    net_dict = net.state_dict()
+                    # fill out the unnecessary keys
+                    state_dict = {k: v for k, v in state_dict.items() if k in net_dict}
+
+                    # # e.g. state_dict:['A', 'B', 'C'], net_dict: ['A', 'B', 'D']
+                    # 1 fill out the unnecessary keys
+                    # state_dict = {k:v for k,v in state_dict.items() if k in net_dict}
+                    # # 2 overwrite the entries in the existing state dict
+                    # net_dict.update(state_dict)
+                    # # 3 load the new state_dict
+                    # net.load_state_dict(net_dict)
+
                 # patch InstanceNorm checkpoints prior to 0.4
                 for key in list(state_dict.keys()):  # need to copy keys here because we mutate in loop
                     self.__patch_instance_norm_state_dict(state_dict, net, key.split('.'))
@@ -293,11 +312,13 @@ class BaseModel():
                     # print(key)
                     self.__patch_instance_norm_state_dict(state_dict, net, key.split('.'))
 
-                if self.opt.model == 'reid_attr':
+                # if self.opt.model == 'reid_attr':
+                if 'attr' in self.opt.model:
                     # the loaded state_dict have partial params of the net, which is missing some keys
-                    state = net.state_dict()
-                    state.update(state_dict)
-                    net.load_state_dict(state)
+                    # update: the number params in net_dict >= state_dict
+                    net_dict = net.state_dict()
+                    net_dict.update(state_dict)
+                    net.load_state_dict(net_dict)
                 else:
                     net.load_state_dict(state_dict)
 

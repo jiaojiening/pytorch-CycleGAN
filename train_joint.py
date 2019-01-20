@@ -21,15 +21,19 @@ if __name__ == '__main__':
         # load the SR model, the SR lr do not need to decrease
         opt.lr = opt.lr
     if opt.stage == 1:
-        # opt.lr = opt.lr * 0.1
-        opt.reid_lr = opt.reid_lr * 0.1
+        # fix the reid model, only train the SR model
+        opt.lr = opt.lr
     if opt.stage == 2:
-        opt.lr = opt.lr * 0.01
-        opt.reid_lr = opt.reid_lr * 0.01
-    opt.continue_train = True
+        opt.lr = opt.lr
+        opt.reid_lr = opt.reid_lr
+    # opt.continue_train = True
 
     model = create_model(opt)
-    model.setup_joint_training(opt)
+    if opt.continue_train:
+        print('test')
+        model.setup(opt)
+    else:
+        model.setup_joint_training(opt)
     visualizer = Visualizer(opt)
     total_steps = 0
 
@@ -72,11 +76,17 @@ if __name__ == '__main__':
             model.save_networks('latest')
             model.save_networks(epoch)
 
-        accuracy_A, accuracy_B, _, _ = model.compute_corrects()
-        accuracy_A = accuracy_A / len(dataset)
-        accuracy_B = accuracy_B / len(dataset)
+        accuracy_reid, accuracy_attr = model.compute_corrects()
+        accuracy_A = accuracy_reid[0] / len(dataset)
+        accuracy_B = accuracy_reid[1] / len(dataset)
+        accuracy_GT_A = accuracy_reid[2] / len(dataset)
+        accuracy_reid_total = accuracy_reid[3] / (len(dataset) * 3.0)
+        accuracy_attr_A = [accu_attr / len(dataset) for accu_attr in accuracy_attr[0]]
+        accuracy_attr_B = [accu_attr / len(dataset) for accu_attr in accuracy_attr[1]]
+        print('The total accuracy of reid: %f ' % (accuracy_reid_total))
         print('The accuracy of A: %f, the accuracy of B: %f' % (accuracy_A, accuracy_B))
+        print('The accuracy of the attributes A:', accuracy_attr_A)
+        print('The accuracy of the attributes B:', accuracy_attr_B)
         print('End of epoch %d / %d \t Time Taken: %d sec' %
               (epoch, opt.niter + opt.niter_decay, time.time() - epoch_start_time))
         model.update_learning_rate()
-        # model.update_reid_learning_rate()

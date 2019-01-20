@@ -168,13 +168,13 @@ class AttrClassBlock(nn.Module):
         else:
             # id_x = self.id_classifier(x)
             id_x = self.classifier(x)
-            # print(x.is_cuda)
             # attributes classifier
             attr_x = []
             for each_attr_classifier in self.attr_classifiers:
                 attr_x.append(each_attr_classifier(x))
-                # attr_x.append(each_attr_classifier(x).unsqueeze(0))
-            # attr_x = torch.cat(attr_x)
+            # results_x = []
+            # results_x.append(id_x)
+            # results_x.append(attr_x)
             return id_x, attr_x
 
 # Define the ResNet50-based Model

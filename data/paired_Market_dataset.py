@@ -136,6 +136,7 @@ class PairedMarketDataset(BaseDataset):
         B_label = self.B_labels[index % self.B_size]
 
         # find all the same label as B_label in the A_labels
+        # TODO: if not find the same label as B_label in the A_labels
         all_index_A = find_all_index(self.A_labels, B_label)
 
         # choose the image in A(HR) for the first index or randomly

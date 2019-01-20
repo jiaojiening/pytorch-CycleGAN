@@ -186,7 +186,6 @@ class MarketDataset(BaseDataset):
         while list(A_fake_attr) == list(A_real_attr):
             fake_index = np.random.permutation(self.A_size)[0]
             A_fake_attr = self.A_attr[fake_index][:]
-        B_real_attr = self.B_attr[index % self.B_size]
 
         # only have the attributes of low-resolution(B) images
         B_real_attr = self.B_attr[index % self.B_size]
@@ -205,8 +204,7 @@ class MarketDataset(BaseDataset):
         A_label = self.A_labels[index_A]
         B_label = self.B_labels[index % self.B_size]
 
-        return {'A': A, 'B': B,
-                'GT_A':GT_A,'GT_B': GT_B,
+        return {'A': A, 'B': B, 'GT_A': GT_A,'GT_B': GT_B,
                 'A_paths': A_path, 'B_paths': B_path,
                 'A_real_attr': A_real_attr, 'A_fake_attr': A_fake_attr,
                 'B_real_attr': B_real_attr, 'B_fake_attr': B_fake_attr,
