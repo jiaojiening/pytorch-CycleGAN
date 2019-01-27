@@ -219,8 +219,8 @@ class ReidcycleGANModel(BaseModel):
         self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B
 
         # reconstruct loss of low resolution fake_B
-        self.loss_rec = self.criterionRec(self.fake_B, self.GT_A) * lambda_Rec
-        self.loss_G += self.loss_rec
+        self.loss_Rec = self.criterionRec(self.fake_B, self.GT_A) * lambda_Rec
+        self.loss_G += self.loss_Rec
 
         # # add reid loss to update the G_B(LR-HR)
         # _, pred_label_real_A = torch.max(self.pred_real_A, 1)
