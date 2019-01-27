@@ -28,7 +28,8 @@ class DukeDataset(BaseDataset):
 
     def initialize(self, opt):
         self.opt = opt
-        self.dataPath = '/home/share/jiening/dgd_datasets/raw'
+        # self.dataPath = '/home/share/jiening/dgd_datasets/raw'
+        self.dataPath = '/home/weixiong/jiening'
         self.root = opt.dataroot    # opt.dataroot = DukeMTMC-reID
 
         # load the attributes from the formatted attributes file, total 23 attributes
