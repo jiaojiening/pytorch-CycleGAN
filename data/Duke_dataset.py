@@ -28,8 +28,8 @@ class DukeDataset(BaseDataset):
 
     def initialize(self, opt):
         self.opt = opt
-        # self.dataPath = '/home/share/jiening/dgd_datasets/raw'
-        self.dataPath = '/home/weixiong/jiening'
+        self.dataPath = '/home/share/jiening/dgd_datasets/raw'
+        # self.dataPath = '/home/weixiong/jiening'
         self.root = opt.dataroot    # opt.dataroot = DukeMTMC-reID
 
         # load the attributes from the formatted attributes file, total 23 attributes
@@ -54,7 +54,7 @@ class DukeDataset(BaseDataset):
             for i, label in enumerate(list(np.unique(np.array(self.train_labels)))):
                 self.train_id_map[label] = i
             # print(self.train_id_map)
-            # map the train_labels to train_id_labels start from zeros (0-702)
+            # map the train_labels to train_id_labels start from zeros (0-701)
             train_id_labels = list(map(lambda x: self.train_id_map[x], self.train_labels))
 
             # random half split the A and B in train

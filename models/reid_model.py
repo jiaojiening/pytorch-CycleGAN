@@ -98,13 +98,13 @@ class ReidModel(BaseModel):
 
             # training: 1 * num_classes prediction vector,
             # test: 1 * 2048 feature vector
-            self.pred_real_A = self.netD_reid(self.real_A)  # A_label HR
-            self.pred_real_B = self.netD_reid(self.real_B)  # B_label LR
+            # self.pred_real_A = self.netD_reid(self.real_A)  # A_label HR
+            # self.pred_real_B = self.netD_reid(self.real_B)  # B_label LR
             # self.pred_GT_A = self.netD_reid(self.GT_A)  # A_label LR
 
-            # self.imags = torch.cat([self.real_A, self.real_B], 0)
-            # self.labels = torch.cat([self.A_label, self.B_label], 0)
-            # self.pred_imgs = self.netD_reid(self.imags)
+            self.imags = torch.cat([self.real_A, self.real_B], 0)
+            self.labels = torch.cat([self.A_label, self.B_label], 0)
+            self.pred_imgs = self.netD_reid(self.imags)
             # self.imags = torch.cat([self.real_A, self.real_B, self.GT_A], 0)
             # self.labels = torch.cat([self.A_label, self.B_label, self.A_label], 0)
             # self.pred_imgs = self.netD_reid(self.imags)
@@ -128,15 +128,15 @@ class ReidModel(BaseModel):
         self.features = torch.cat((self.features, f), 0)
 
     def backward_G(self):
-        _, pred_label_real_A = torch.max(self.pred_real_A, 1)
-        _, pred_label_real_B = torch.max(self.pred_real_B, 1)
-        self.corrects_A += float(torch.sum(pred_label_real_A == self.A_label))
-        self.corrects_B += float(torch.sum(pred_label_real_B == self.B_label))
-
+        # _, pred_label_real_A = torch.max(self.pred_real_A, 1)
+        # _, pred_label_real_B = torch.max(self.pred_real_B, 1)
+        # self.corrects_A += float(torch.sum(pred_label_real_A == self.A_label))
+        # self.corrects_B += float(torch.sum(pred_label_real_B == self.B_label))
+        #
         # add reid loss to update the G_B(LR-HR)
-        self.loss_reid_real_A = self.criterionReid(self.pred_real_A, self.A_label)
-        self.loss_reid_real_B = self.criterionReid(self.pred_real_B, self.B_label)
-        self.loss_reid = self.loss_reid_real_A + self.loss_reid_real_B
+        # self.loss_reid_real_A = self.criterionReid(self.pred_real_A, self.A_label)
+        # self.loss_reid_real_B = self.criterionReid(self.pred_real_B, self.B_label)
+        # self.loss_reid = self.loss_reid_real_A + self.loss_reid_real_B
         # self.loss_reid = (self.loss_reid_real_A + self.loss_reid_real_B)/2.0
         #
         # _, pred_label_GT_A = torch.max(self.pred_GT_A, 1)
@@ -144,9 +144,9 @@ class ReidModel(BaseModel):
         # self.loss_reid_GT_A = self.criterionReid(self.pred_GT_A, self.A_label)
         # self.loss_reid = self.loss_reid_real_A + self.loss_reid_real_B + self.loss_reid_GT_A
 
-        # _, pred_label_imgs = torch.max(self.pred_imgs, 1)
-        # self.corrects += float(torch.sum(pred_label_imgs == self.labels))
-        # self.loss_reid = self.criterionReid(self.pred_imgs, self.labels)
+        _, pred_label_imgs = torch.max(self.pred_imgs, 1)
+        self.corrects += float(torch.sum(pred_label_imgs == self.labels))
+        self.loss_reid = self.criterionReid(self.pred_imgs, self.labels)
         # print(self.loss_reid)
 
         self.loss_G = self.loss_reid
