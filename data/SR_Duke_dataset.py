@@ -56,21 +56,25 @@ class SRDukeDataset(BaseDataset):
             print(len(randIdx))
 
             A_Idx = randIdx[:len(randIdx) // 2]
+            B_Idx = randIdx[len(randIdx) // 2:]
             self.A_paths = [self.train_paths[i] for i in A_Idx]
             self.A_labels = [train_id_labels[i] for i in A_Idx]
+            self.B_paths = [self.train_paths[i] for i in B_Idx]
+            self.B_labels = [train_id_labels[i] for i in B_Idx]
 
             # get the super-resolution B set
             # dir_SR_B = os.path.join(opt.results_dir, opt.SR_name, '%s_%s' % (opt.save_phase, opt.epoch))
             #TODO
             opt.results_dir = './results/'
             dir_SR_B = os.path.join(opt.results_dir, opt.SR_name, '%s_%s' % (opt.phase, opt.epoch))
-            SR_B_paths, SR_B_labels = make_SR_dataset(dir_SR_B)
-            print(len(SR_B_paths))
-            self.B_paths = SR_B_paths
-            print(self.B_paths[0])
-            # print(self.train_id_map.keys())
-            # print(SR_B_labels)
-            self.B_labels = list(map(lambda x: self.train_id_map[x], SR_B_labels))
+            SR_B_paths, SR_B_labels, LR_B_paths = make_SR_dataset(dir_SR_B)
+
+            self.SR_B_paths = SR_B_paths
+            self.LR_B_paths = LR_B_paths
+            self.SR_B_labels = list(map(lambda x: self.train_id_map[x], SR_B_labels))
+
+            assert len(self.SR_B_paths) == len(self.B_paths), 'the length of SR_B_paths must be equal to B_paths'
+            assert self.SR_B_labels == self.B_labels, 'SR_B_labels must be equal to B_labels'
 
             # check that both the HR and LR images of each id
             print(len(set(self.A_labels)))  # 702
@@ -92,9 +96,9 @@ class SRDukeDataset(BaseDataset):
             # -----------------------------------------
             # super-resolution query (test B) LR
             # self.dir_query = os.path.join(self.dataPath, opt.dataroot, 'query')  # images in the query
-            # dir_SR_query = os.path.join(opt.results_dir, opt.SR_name, '%s_%s' % (opt.save_phase, opt.epoch))
-            dir_SR_query = os.path.join(opt.results_dir, opt.SR_name, '%s_%s' % (opt.phase, opt.epoch))
-            query_paths, query_labels = make_SR_dataset(dir_SR_query)
+            dir_SR_query = os.path.join(opt.results_dir, opt.SR_name, '%s_%s' % (opt.save_phase, opt.epoch))
+            # dir_SR_query = os.path.join(opt.results_dir, opt.SR_name, '%s_%s' % (opt.phase, opt.epoch))
+            SR_query_paths, query_labels, query_paths = make_SR_dataset(dir_SR_query)
             query_num = len(query_paths)  # 2228
             print('total %d images in query' % query_num)
 
@@ -120,7 +124,8 @@ class SRDukeDataset(BaseDataset):
                     attr_id = self.test_attr_map[i]
                     self.img_attrs.append(self.test_attr[attr_id])
             else:
-                self.img_paths = query_paths
+                # self.img_paths = query_paths
+                self.img_paths = SR_query_paths
                 self.img_labels = query_labels
                 self.img_attrs = []
                 for i in query_labels:
@@ -130,9 +135,9 @@ class SRDukeDataset(BaseDataset):
 
             self.img_size = len(self.img_paths)
 
-        # A: high_resolution, B: low_resolution
         # opt.fineSize = 128, opt.loadSize = 158, need to modify
         self.transform = get_transforms_reid(opt)
+        self.transform_LR = get_transforms_LR_reid(opt)
         self.transform_norm = get_transforms_norm_reid()
 
 
@@ -143,7 +148,7 @@ class SRDukeDataset(BaseDataset):
             return self._get_single_item(index)
 
     def _get_item(self, index):
-        # we want to learn BtoA, e.g., low-resolution to high-resolution
+        # the path of the high-resolution B image
         B_path = self.B_paths[index % self.B_size]
         # choose the image in A(HR) in order or randomly
         # default: randomly, serial_batches = False
@@ -153,13 +158,29 @@ class SRDukeDataset(BaseDataset):
             index_A = random.randint(0, self.A_size - 1)
         A_path = self.A_paths[index_A]
 
+        # the path of super-resolution B image, e.g., fake_A
+        SR_B_path = self.SR_B_paths[index % self.B_size]
+        # low-resolution B image
+        LR_B_path  = self.LR_B_paths[index % self.B_size]
+
         A_img = Image.open(A_path).convert('RGB')
         B_img = Image.open(B_path).convert('RGB')
+        SR_B_img = Image.open(SR_B_path).convert('RGB')
+        LR_B_img = Image.open(LR_B_path).convert('RGB')
 
         A = self.transform(A_img)
         A = self.transform_norm(A)
-        B = self.transform(B_img)
+
+        GT_B = self.transform(B_img)  # ground-truth high-resolution
+        B = self.transform_LR(GT_B)  # produce the low-resolution images of the GT_B
+        # normalize the images
+        GT_B = self.transform_norm(GT_B)
         B = self.transform_norm(B)
+
+        SR_B = self.transform(SR_B_img)
+        SR_B = self.transform_norm(SR_B)
+        LR_B = self.transform(LR_B_img)
+        LR_B = self.transform_norm(LR_B)
 
         if self.opt.direction == 'BtoA':
             input_nc = self.opt.output_nc
@@ -194,7 +215,7 @@ class SRDukeDataset(BaseDataset):
         A_label = self.A_labels[index_A]
         B_label = self.B_labels[index % self.B_size]
 
-        return {'A': A, 'B': B,
+        return {'A': A, 'B': B, 'LR_B': LR_B, 'SR_B': SR_B,
                 'A_paths': A_path, 'B_paths': B_path,
                 'A_real_attr': A_real_attr, 'A_fake_attr': A_fake_attr,
                 'B_real_attr': B_real_attr,
