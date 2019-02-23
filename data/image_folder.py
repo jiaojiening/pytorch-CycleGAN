@@ -49,18 +49,23 @@ def make_reid_dataset(dir):
     return images, labels
 
 def make_SR_dataset(dir):
-    images = []
+    SR_images = []
     labels = []
+    LR_images = []
     assert os.path.isdir(dir), '%s is not a valid directory' % dir
 
     for root, _, fnames in sorted(os.walk(dir)):
         for fname in fnames:
             if is_image_file(fname) and (fname.endswith('fake_A.png') or fname.endswith('fake_A.jpg')):
                 path = os.path.join(root, fname)
-                images.append(path)
+                SR_images.append(path)
                 ID = fname.split('_')
                 labels.append(int(ID[0]))
-    return images, labels
+            # add the LR images path
+            if is_image_file(fname) and (fname.endswith('real_B.png') or fname.endswith('real_B.png')):
+                path = os.path.join(root, fname)
+                LR_images.append(path)
+    return SR_images, labels, LR_images
 
 def find_all_index(arr, item):
     return [i for i, a in enumerate(arr) if a == item]
