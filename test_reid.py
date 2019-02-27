@@ -65,10 +65,10 @@ if __name__ == '__main__':
         total_labels.extend(labels)
 
         visualizer.reset()
-        if i % 1 == 0:
+        if i % 10 == 0:
             print('processing (%04d)-th image... %s' % (i, img_path[0]))
-            save_result = True
-            visualizer.display_current_results(model.get_current_visuals(), i, save_result)
+            # save_result = True
+            # visualizer.display_current_results(model.get_current_visuals(), i, save_result)
 
     query_feature = model.get_features()
     query_cam = total_cams
@@ -93,8 +93,8 @@ if __name__ == '__main__':
         visualizer.reset()
         if i % 10 == 0:
             print('processing (%04d)-th image... %s' % (i, img_path[0]))
-            save_result = True
-            visualizer.display_current_results(model.get_current_visuals(), i, save_result)
+            # save_result = True
+            # visualizer.display_current_results(model.get_current_visuals(), i, save_result)
 
     gallery_feature = model.get_features()
     gallery_cam = total_cams

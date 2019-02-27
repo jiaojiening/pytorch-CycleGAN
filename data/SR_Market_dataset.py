@@ -69,7 +69,6 @@ class SRMarketDataset(BaseDataset):
 
             # get the super-resolution B set
             # dir_SR_B = os.path.join(opt.results_dir, opt.SR_name, '%s_%s' % (opt.save_phase, opt.epoch))
-            # TODO
             opt.results_dir = './results/'
             dir_SR_B = os.path.join(opt.results_dir, opt.SR_name, '%s_%s' % (opt.phase, opt.epoch))
             SR_B_paths, SR_B_labels = make_SR_dataset(dir_SR_B)
@@ -98,8 +97,8 @@ class SRMarketDataset(BaseDataset):
             # -----------------------------------------
             # super-resolution query (test B) LR
             dir_SR_query = os.path.join(opt.results_dir, opt.SR_name, '%s_%s' % (opt.phase, opt.epoch))
-            query_paths, query_labels = make_SR_dataset(dir_SR_query)
-            query_num = len(query_paths)  # 2228
+            SR_query_paths, query_labels = make_SR_dataset(dir_SR_query)
+            query_num = len(SR_query_paths)  # 2228
             print('total %d images in query' % query_num)
 
             # -----------------------------------------
@@ -125,7 +124,7 @@ class SRMarketDataset(BaseDataset):
                     # obtain the according person id
                     self.img_attrs.append(self.img_labels[i])
             else:
-                self.img_paths = query_paths
+                self.img_paths = SR_query_paths
                 self.img_labels = query_labels
                 self.img_attrs = []
                 for i in query_labels:

@@ -1,6 +1,6 @@
 import torch
 import itertools
-from util.image_pool import ImagePool
+from util.image_pool import ImagePool, AttrImagePool
 from .base_model import BaseModel
 from . import networks
 from . import networks_reid
@@ -19,9 +19,10 @@ class ReidSRcCycleGANModel(BaseModel):
             parser.add_argument('--lambda_B', type=float, default=10.0,
                                 help='weight for cycle loss (B -> A -> B)')
             parser.add_argument('--lambda_identity', type=float, default=0.5, help='use identity mapping. Setting lambda_identity other than 0 has an effect of scaling the weight of the identity mapping loss. For example, if the weight of the identity loss should be 10 times smaller than the weight of the reconstruction loss, please set lambda_identity = 0.1')
+            parser.add_argument('--lambda_rec', type=float, default=10.0, help='weight for reconstruction loss')
             # reid parameters
             parser.add_argument('--droprate', type=float, default=0.5, help='the dropout ratio in reid model')
-            parser.add_argument('--lambda_Rec', type=float, default=10.0, help='weight for reconstruction loss')
+
         return parser
 
     def initialize(self, opt):
@@ -29,7 +30,6 @@ class ReidSRcCycleGANModel(BaseModel):
 
         # specify the training losses you want to print out. The program will call base_model.get_current_losses
         self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B', 'reid']
-        # self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B', 'reid', 'Rec']
         # specify the images you want to save/display. The program will call base_model.get_current_visuals
         visual_names_A = ['real_A', 'fake_B', 'rec_A']
         visual_names_B = ['real_B', 'fake_A', 'rec_B', 'GT_B']
@@ -41,17 +41,17 @@ class ReidSRcCycleGANModel(BaseModel):
         # specify the models you want to save to the disk. The program will call base_model.save_networks and base_model.load_networks
         if self.isTrain:
             self.model_names = ['G_A', 'G_B', 'D_A', 'D_B', 'D_reid']
-        else:  # during test time, only load Gs
+        else:  # during test time, only load Gs and reid model
             self.model_names = ['G_A', 'G_B', 'D_reid']
 
         self.num_attr = opt.num_attr
 
         # load/define networks
         # The naming conversion is different from those used in the paper
-        # Code (paper): G_A (G), G_B (F), D_A (D_Y), D_B (D_X)
+        # Code (paper): G_A (G_LR), G_B (G_HR), D_A (D_LR), D_B (D_HR)
         self.netG_A = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm,
                                         not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
-        # Input: B(low-resolution) + attributes of A(high-resolution)
+        # Input: B(low-resolution) + attributes of B(high-resolution)
         self.netG_B = networks.define_G(opt.output_nc + opt.num_attr, opt.input_nc, opt.ngf, opt.netG, opt.norm,
                                         not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
 
@@ -65,15 +65,16 @@ class ReidSRcCycleGANModel(BaseModel):
             self.netD_A = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
                                             opt.n_layers_D, opt.norm, use_sigmoid, opt.init_type, opt.init_gain, self.gpu_ids)
             # Input1: A(high-resolution) + attribute of A(high-resolution)
-            # Input2: fake_A + attribute of A(high-resolution)
-            # Input3: A(high-resolution) + random sampled attribute
+            # Input2: fake_A + attribute of B(high-resolution)
+            # Input3: A(high-resolution) + A_fake_attr(random sampled attribute)
             condit_netD = 'conditional_basic'
             self.netD_B = networks.define_D(opt.input_nc, opt.ndf, condit_netD,
                                             opt.n_layers_D, opt.norm, use_sigmoid, opt.init_type, opt.init_gain, self.gpu_ids,
                                             opt.num_attr)
 
+
         if self.isTrain:
-            self.fake_A_pool = ImagePool(opt.pool_size)
+            self.fake_A_pool = AttrImagePool(opt.pool_size)
             self.fake_B_pool = ImagePool(opt.pool_size)
             # define loss functions
             self.criterionGAN = networks.GANLoss(use_lsgan=not opt.no_lsgan).to(self.device)
@@ -118,15 +119,18 @@ class ReidSRcCycleGANModel(BaseModel):
             # for the BatchNorm
             self.netD_reid.train()
 
+
     def set_input(self, input):
         self.real_A = input['A'].to(self.device)
         self.real_B = input['B'].to(self.device)
-        self.image_paths = input['A_paths']
+        # need the B_paths
+        self.image_paths = input['B_paths']
         # add the conditional attributes vector
         self.A_real_attr = input['A_real_attr'].to(self.device)
         self.A_fake_attr = input['A_fake_attr'].to(self.device)
         self.B_real_attr = input['B_real_attr'].to(self.device)
 
+        # load the ground-truth low resolution A image
         self.GT_A = input['GT_A'].to(self.device)  # low-resolution
         # load the ground-truth high resolution B image to test the SR quality
         self.GT_B = input['GT_B'].to(self.device)
@@ -148,11 +152,7 @@ class ReidSRcCycleGANModel(BaseModel):
         comb_input_fake = torch.cat([A_real_attr, self.fake_B], 1)
         self.rec_A = self.netG_B(comb_input_fake)
 
-        # print(self.real_B.size()) # [1, 3, 256, 128]
-        # self.fake_A = self.netG_B(self.real_B)
         B_real_attr = torch.unsqueeze(self.B_real_attr, 2)  # add a new axis
-        # B_real_attr = B_real_attr.repeat(1, 1, 128 * 128)
-        # B_real_attr = torch.reshape(B_real_attr, (-1, self.num_attr, 128, 128))
         B_real_attr = B_real_attr.repeat(1, 1, self.real_B.size()[2] * self.real_B.size()[3])
         B_real_attr = torch.reshape(B_real_attr, (-1, self.num_attr, self.real_B.size()[2], self.real_B.size()[3]))
         B_real_attr = B_real_attr.float()
@@ -165,19 +165,18 @@ class ReidSRcCycleGANModel(BaseModel):
         # more strong than the D_B loss
         # self.pred_real_A = self.netD_reid(self.real_A)   # A_label HR
         # self.pred_fake_A = self.netD_reid(self.fake_A)   # B_label HR
-        # self.pred_fake_B = self.netD_reid(self.fake_B)   # A_label LR
 
-        # self.imags = torch.cat([self.real_A, self.real_B, self.GT_A], 0)
-        # self.imags = torch.cat([self.real_A, self.fake_A, self.fake_B], 0)
-        # self.labels = torch.cat([self.A_label, self.B_label, self.A_label], 0)
+        self.imgs = torch.cat([self.real_A, self.fake_A], 0)
+        self.labels = torch.cat([self.A_label, self.B_label], 0)
+        # # all the images
+        # self.imgs = torch.cat([self.real_A, self.fake_A, self.rec_A, self.real_B, self.fake_B, self.rec_B], 0)
+        # self.labels = torch.cat([self.A_label, self.B_label, self.A_label,
+        #                          self.B_label, self.A_label, self.B_label])
+        # all the HR images
+        # self.imgs = torch.cat([self.real_A, self.fake_A, self.rec_A], 0)
+        # self.labels = torch.cat([self.A_label, self.B_label, self.A_label,])
 
-        # self.imags = torch.cat([self.real_A, self.fake_A], 0)
-        # self.labels = torch.cat([self.A_label, self.B_label], 0)
-        self.imags = torch.cat([self.real_A, self.fake_A, self.rec_A, self.real_B, self.fake_B, self.rec_B], 0)
-        self.labels = torch.cat([self.A_label, self.B_label, self.A_label,
-                                 self.B_label, self.A_label, self.B_label])
-
-        self.pred_imgs = self.netD_reid(self.imags)
+        self.pred_imgs = self.netD_reid(self.imgs)
 
     def psnr_eval(self):
         # compute the PSNR for the test
@@ -201,15 +200,16 @@ class ReidSRcCycleGANModel(BaseModel):
         loss_D.backward()
         return loss_D
 
-    def backward_D_condit(self, netD, real, fake, real_attr, fake_attr):
+    def backward_D_condit(self, netD, real, fake, real_attr_HR, real_attr_LR, fake_attr_HR):
         # Real
-        pred_real = netD(real, real_attr)
+        pred_real = netD(real, real_attr_HR)
         loss_D_real = self.criterionGAN(pred_real, True)
 
         # Fake
-        pred_fake_1 = netD(fake.detach(), real_attr)
+        # real_attr_LR: the according attributes of fake
+        pred_fake_1 = netD(fake.detach(), real_attr_LR)
         loss_D_fake_1 = self.criterionGAN(pred_fake_1, False)
-        pred_fake_2 = netD(real, fake_attr)
+        pred_fake_2 = netD(real, fake_attr_HR)
         loss_D_fake_2 = self.criterionGAN(pred_fake_2, False)
         loss_D_fake = (loss_D_fake_1 + loss_D_fake_2) * 0.5
 
@@ -224,14 +224,18 @@ class ReidSRcCycleGANModel(BaseModel):
         self.loss_D_A = self.backward_D_basic(self.netD_A, self.real_B, fake_B)
 
     def backward_D_B(self):
-        fake_A = self.fake_A_pool.query(self.fake_A)
-        self.loss_D_B = self.backward_D_condit(self.netD_B, self.real_A, fake_A, self.A_real_attr, self.B_real_attr)
+        fake_A, B_real_attr = self.fake_A_pool.query(self.fake_A, self.B_real_attr)
+        # self.loss_D_B = self.backward_D_condit(self.netD_B, self.real_A, fake_A, self.A_real_attr, self.B_real_attr)
+        # To avoid the self.A_real_attr = self.B_real_attr
+        # self.loss_D_B = self.backward_D_condit(self.netD_B, self.real_A, fake_A, self.A_real_attr, self.A_fake_attr)
+        self.loss_D_B = self.backward_D_condit(self.netD_B, self.real_A, fake_A,
+                                               self.A_real_attr, B_real_attr, self.A_fake_attr)
 
     def backward_G(self):
         lambda_idt = self.opt.lambda_identity
         lambda_A = self.opt.lambda_A
         lambda_B = self.opt.lambda_B
-        lambda_Rec = self.opt.lambda_Rec
+        lambda_rec = self.opt.lambda_rec
         # Identity loss
         if lambda_idt > 0:
             # G_A should be identity if real_B is fed.
@@ -239,10 +243,7 @@ class ReidSRcCycleGANModel(BaseModel):
             self.loss_idt_A = self.criterionIdt(self.idt_A, self.real_B) * lambda_B * lambda_idt
             # G_B should be identity if real_A is fed.
 
-            # print(self.real_A.size())   # [1, 3, 256, 128]
             A_real_attr = torch.unsqueeze(self.A_real_attr, 2)  # add a new axis
-            # A_real_attr = A_real_attr.repeat(1, 1, 128 * 128)
-            # A_real_attr = torch.reshape(A_real_attr, (-1, self.num_attr, 128, 128))
             A_real_attr = A_real_attr.repeat(1, 1, self.real_A.size()[2] * self.real_A.size()[3])
             A_real_attr = torch.reshape(A_real_attr, (-1, self.num_attr, self.real_A.size()[2], self.real_A.size()[3]))
             A_real_attr = A_real_attr.float()
@@ -257,7 +258,8 @@ class ReidSRcCycleGANModel(BaseModel):
         # GAN loss D_A(G_A(A))
         self.loss_G_A = self.criterionGAN(self.netD_A(self.fake_B), True)
         # GAN loss D_B(G_B(B))
-        self.loss_G_B = self.criterionGAN(self.netD_B(self.fake_A, self.A_real_attr), True)
+        # self.loss_G_B = self.criterionGAN(self.netD_B(self.fake_A, self.A_real_attr), True)
+        self.loss_G_B = self.criterionGAN(self.netD_B(self.fake_A, self.B_real_attr), True)
         # Forward cycle loss
         self.loss_cycle_A = self.criterionCycle(self.rec_A, self.real_A) * lambda_A
         # Backward cycle loss
@@ -266,7 +268,7 @@ class ReidSRcCycleGANModel(BaseModel):
         self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B
 
         # reconstruct loss of low resolution fake_B
-        # self.loss_rec = self.criterionRec(self.fake_B, self.GT_A) * lambda_Rec
+        # self.loss_rec = self.criterionRec(self.fake_B, self.GT_A) * lambda_rec
         # self.loss_G += self.loss_rec
 
         # # add reid loss to update the G_B(LR-HR)
@@ -279,8 +281,6 @@ class ReidSRcCycleGANModel(BaseModel):
         # loss_reid_real_A = self.criterionReid(self.pred_real_A, self.A_label)
         # loss_reid_fake_A = self.criterionReid(self.pred_fake_A, self.B_label)
         # # self.loss_reid = loss_reid_real_A + loss_reid_fake_A
-        # loss_reid_fake_B = self.criterionReid(self.pred_fake_B, self.A_label)
-        # self.loss_reid = loss_reid_real_A + loss_reid_fake_A + loss_reid_fake_B
 
         _, pred_label_imgs = torch.max(self.pred_imgs, 1)
         self.corrects += float(torch.sum(pred_label_imgs == self.labels))

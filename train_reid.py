@@ -65,8 +65,10 @@ if __name__ == '__main__':
         accuracy_reid_total = accuracy_reid[3] / (len(dataset)*3.0)
         accuracy_attr_A = [accu_attr / len(dataset) for accu_attr in accuracy_attr[0]]
         accuracy_attr_B = [accu_attr / len(dataset) for accu_attr in accuracy_attr[1]]
+        accuracy_attr_total = [accu_attr / (len(dataset) * 2.0) for accu_attr in accuracy_attr[2]]
         print('The total accuracy of reid: %f ' % (accuracy_reid_total))
         print('The accuracy of A: %f, the accuracy of B: %f' % (accuracy_A, accuracy_B))
+        print('The total accuracy of attributes:', accuracy_attr_total)
         print('The accuracy of the attributes A:', accuracy_attr_A)
         print('The accuracy of the attributes B:', accuracy_attr_B)
         print('End of epoch %d / %d \t Time Taken: %d sec' %

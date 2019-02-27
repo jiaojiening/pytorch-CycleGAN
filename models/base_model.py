@@ -42,8 +42,9 @@ class BaseModel():
         self.corrects_B = 0
         self.corrects_GT_A = 0
         self.num_attr = opt.num_attr
+        self.corrects_attr = opt.num_attr * [0.0]
         self.corrects_attr_A = opt.num_attr * [0.0]
-        self.corrects_attr_B = self.num_attr * [0.0]
+        self.corrects_attr_B = opt.num_attr * [0.0]
         self.features = torch.FloatTensor()
 
 
@@ -142,26 +143,23 @@ class BaseModel():
 
     # update learning rate (called once every epoch)
     def compute_corrects(self):
-        # corrects_A = self.corrects_A
-        # corrects_B = self.corrects_B
-        # corrects_GT_A = self.corrects_GT_A
-        # corrects = self.corrects
         corrects_reid = []
         corrects_reid.append(self.corrects_A)
         corrects_reid.append(self.corrects_B)
         corrects_reid.append(self.corrects_GT_A)
         corrects_reid.append(self.corrects)
-        # corrects_attr_A = self.corrects_attr_A
-        # corrects_attr_B = self.corrects_attr_B
         corrects_attr = []
         corrects_attr.append(self.corrects_attr_A)
         corrects_attr.append(self.corrects_attr_B)
+        corrects_attr.append(self.corrects_attr)
         self.corrects_A = 0
         self.corrects_GT_A = 0
         self.corrects_B = 0
         self.corrects = 0
         self.corrects_attr_A = self.num_attr * [0.0]
         self.corrects_attr_B = self.num_attr * [0.0]
+        self.corrects_attr = self.num_attr * [0.0]
+
         return corrects_reid, corrects_attr
 
     # get image paths

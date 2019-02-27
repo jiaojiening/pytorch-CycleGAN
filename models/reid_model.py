@@ -11,16 +11,9 @@ class ReidModel(BaseModel):
 
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
-        # default CycleGAN did not use dropout
-        parser.set_defaults(no_dropout=True)
         # reid parameters, put the parameter num_classes in the dataset
         parser.add_argument('--droprate', type=float, default=0.5, help='the dropout ratio in reid model')
         parser.add_argument('--NR', action='store_true', help='use the normal resolution dataset')
-        if is_train:
-            parser.add_argument('--lambda_A', type=float, default=10.0, help='weight for cycle loss (A -> B -> A)')
-            parser.add_argument('--lambda_B', type=float, default=10.0,
-                                help='weight for cycle loss (B -> A -> B)')
-            parser.add_argument('--lambda_identity', type=float, default=0.5, help='use identity mapping. Setting lambda_identity other than 0 has an effect of scaling the weight of the identity mapping loss. For example, if the weight of the identity loss should be 10 times smaller than the weight of the reconstruction loss, please set lambda_identity = 0.1')
         return parser
 
     def initialize(self, opt):
@@ -83,7 +76,6 @@ class ReidModel(BaseModel):
         else:
             if self.opt.dataset_type == 'B'and self.opt.NR:
                 # if NR, dataset B use the high-resolution GT_img
-                # print('test')
                 self.img = input['GT_img'].to(self.device)
             else:
                 self.img = input['img'].to(self.device)

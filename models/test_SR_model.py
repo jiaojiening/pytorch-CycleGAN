@@ -27,10 +27,10 @@ class TestSRModel(BaseModel):
         self.save_phase = opt.save_phase
 
         # low-resolution to high-resolution
-        self.netG_B = networks.define_G(opt.output_nc, opt.input_nc, opt.ngf, opt.netG, opt.norm,
-                                        not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
-        # self.netG_B = networks.define_G(opt.output_nc + opt.num_attr, opt.input_nc, opt.ngf, opt.netG, opt.norm,
+        # self.netG_B = networks.define_G(opt.output_nc, opt.input_nc, opt.ngf, opt.netG, opt.norm,
         #                                 not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
+        self.netG_B = networks.define_G(opt.output_nc + opt.num_attr, opt.input_nc, opt.ngf, opt.netG, opt.norm,
+                                        not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
 
 
     def set_input(self, input):
@@ -62,8 +62,8 @@ class TestSRModel(BaseModel):
         B_real_attr = B_real_attr.float()
         comb_input_real = torch.cat([B_real_attr, self.real_B], 1)
 
-        self.fake_A = self.netG_B(self.real_B)
-        # self.fake_A = self.netG_B(comb_input_real)
+        # self.fake_A = self.netG_B(self.real_B)
+        self.fake_A = self.netG_B(comb_input_real)
 
     def psnr_eval(self):
         # compute the PSNR for the test

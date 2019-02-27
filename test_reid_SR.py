@@ -67,7 +67,7 @@ if __name__ == '__main__':
         total_labels.extend(labels)
 
         if i % 100 == 0:
-            print('processing (%04d)-th image... %s' % (i, img_path))
+            print('processing (%04d)-th image... %s' % (i, img_path[0]))
 
     webpage.save()
     query_feature = model.get_features()
@@ -91,7 +91,7 @@ if __name__ == '__main__':
         total_labels.extend(labels)
 
         if i % 100 == 0:
-            print('processing (%04d)-th image... %s' % (i, img_path))
+            print('processing (%04d)-th image... %s' % (i, img_path[0]))
 
     gallery_feature = model.get_features()
     gallery_cam = total_cams
@@ -109,6 +109,3 @@ if __name__ == '__main__':
         os.makedirs(web_dir)
     save_path = os.path.join(web_dir, 'reid_result.mat')
     scipy.io.savemat(save_path, result)
-
-
-

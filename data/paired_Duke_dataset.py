@@ -79,42 +79,6 @@ class PairedDukeDataset(BaseDataset):
             for i in self.B_labels:
                 self.B_attr.append(self.train_attr[i])
 
-        else:
-            # -----------------------------------------
-            # query (test B) LR
-            self.dir_query = os.path.join(self.dataPath, opt.dataroot, 'query')  # images in the query
-            self.query_paths, self.query_labels = make_reid_dataset(self.dir_query)
-            self.query_num = len(self.query_paths)  # 2228
-            print('total %d images in query' % self.query_num)
-
-            # -----------------------------------------
-            # gallery (test A) HR
-            self.dir_gallery = os.path.join(self.dataPath, opt.dataroot, 'bounding_box_test')
-            self.gallery_paths, self.gallery_labels = make_reid_dataset(self.dir_gallery)
-            self.gallery_num = len(self.gallery_paths)  # 17661
-            print('total %d images in bounding_box_test' % self.gallery_num)
-
-            self.test_attr_map = {}
-            # the query_labels are included in the gallery_labels
-            for i, label in enumerate(list(np.unique(np.array(self.gallery_labels)))):
-                self.test_attr_map[label] = i
-
-            self.A_paths = self.gallery_paths
-            self.B_paths = self.query_paths
-            self.A_labels = self.gallery_labels
-            self.B_labels = self.query_labels
-
-            self.A_attr = []
-            for i in self.gallery_labels:
-                # obtain the according id
-                attr_id = self.test_attr_map[i]
-                self.A_attr.append(self.test_attr[attr_id])
-            self.B_attr = []
-            for i in self.query_labels:
-                # obtain the according id
-                attr_id = self.test_attr_map[i]
-                self.B_attr.append(self.test_attr[attr_id])
-
         self.A_size = len(self.A_paths)
         self.B_size = len(self.B_paths)
         print(self.A_size)
