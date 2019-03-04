@@ -166,15 +166,15 @@ class ReidSRcCycleGANModel(BaseModel):
         # self.pred_real_A = self.netD_reid(self.real_A)   # A_label HR
         # self.pred_fake_A = self.netD_reid(self.fake_A)   # B_label HR
 
-        self.imgs = torch.cat([self.real_A, self.fake_A], 0)
-        self.labels = torch.cat([self.A_label, self.B_label], 0)
+        # self.imgs = torch.cat([self.real_A, self.fake_A], 0)
+        # self.labels = torch.cat([self.A_label, self.B_label], 0)
         # # all the images
         # self.imgs = torch.cat([self.real_A, self.fake_A, self.rec_A, self.real_B, self.fake_B, self.rec_B], 0)
         # self.labels = torch.cat([self.A_label, self.B_label, self.A_label,
         #                          self.B_label, self.A_label, self.B_label])
-        # all the HR images
-        # self.imgs = torch.cat([self.real_A, self.fake_A, self.rec_A], 0)
-        # self.labels = torch.cat([self.A_label, self.B_label, self.A_label,])
+        # # all the HR images
+        self.imgs = torch.cat([self.real_A, self.fake_A, self.rec_A], 0)
+        self.labels = torch.cat([self.A_label, self.B_label, self.A_label,])
 
         self.pred_imgs = self.netD_reid(self.imgs)
 

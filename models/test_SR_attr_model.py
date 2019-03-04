@@ -3,9 +3,9 @@ from . import networks
 import torch
 
 
-class TestSRModel(BaseModel):
+class TestSRAttrModel(BaseModel):
     def name(self):
-        return 'TestSRModel'
+        return 'TestSRAttrModel'
 
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
@@ -27,7 +27,9 @@ class TestSRModel(BaseModel):
         self.save_phase = opt.save_phase
 
         # low-resolution to high-resolution
-        self.netG_B = networks.define_G(opt.output_nc, opt.input_nc, opt.ngf, opt.netG, opt.norm,
+        # self.netG_B = networks.define_G(opt.output_nc, opt.input_nc, opt.ngf, opt.netG, opt.norm,
+        #                                 not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
+        self.netG_B = networks.define_G(opt.output_nc + opt.num_attr, opt.input_nc, opt.ngf, opt.netG, opt.norm,
                                         not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
 
 
@@ -51,8 +53,17 @@ class TestSRModel(BaseModel):
             # need the B_paths
             self.image_paths = input['B_paths']  # list
 
+
     def SR_B(self):
-        self.fake_A = self.netG_B(self.real_B)
+        # combine the attributes
+        B_real_attr = torch.unsqueeze(self.B_real_attr, 2)
+        B_real_attr = B_real_attr.repeat(1, 1, self.real_B.size()[2] * self.real_B.size()[3])
+        B_real_attr = torch.reshape(B_real_attr, (-1, self.num_attr, self.real_B.size()[2], self.real_B.size()[3]))
+        B_real_attr = B_real_attr.float()
+        comb_input_real = torch.cat([B_real_attr, self.real_B], 1)
+
+        # self.fake_A = self.netG_B(self.real_B)
+        self.fake_A = self.netG_B(comb_input_real)
 
     def psnr_eval(self):
         # compute the PSNR for the test

@@ -19,8 +19,8 @@ if __name__ == '__main__':
     # decrease the learning rate
     if opt.stage == 0:
         # load the SR model, the SR lr do not need to decrease
-        # opt.lr = opt.lr
-        opt.lr = opt.lr*0.1
+        opt.lr = opt.lr
+        # opt.lr = ospt.lr*0.1
     if opt.stage == 1:
         # fix the reid model, only train the SR model
         opt.lr = opt.lr

@@ -129,11 +129,12 @@ class HybridCycleGANModel(BaseModel):
         fake_LR_A = self.fake_LR_A_pool.query(self.fake_LR_A)
         # # used for GAN
         # self.loss_D_A = self.backward_D_basic(self.netD_A, self.real_LR_A, fake_LR_A)
-        # # used for CycleGAN
-        # self.loss_D_A = self.backward_D_basic(self.netD_A, self.real_LR_B, fake_LR_A)
+        # used for CycleGAN(v2)
+        self.loss_D_A = self.backward_D_basic(self.netD_A, self.real_LR_B, fake_LR_A)
         # TODO: D_A coverage too fast
-        real_LR = torch.cat([self.real_LR_A, self.real_LR_B], 0)
-        self.loss_D_A = self.backward_D_basic(self.netD_A, real_LR, fake_LR_A)
+        # real_LR = torch.cat([self.real_LR_A, self.real_LR_B], 0)
+        # self.loss_D_A = self.backward_D_basic(self.netD_A, real_LR, fake_LR_A)
+
 
     def backward_D_B(self):
         fake_HR_A = self.fake_HR_A_pool.query(self.fake_HR_A)  # GAN
