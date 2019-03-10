@@ -93,6 +93,13 @@ python train_joint.py --dataroot DukeMTMC-reID \
 --reid_name hybrid_cyclegan_v2_Duke_Reid_upscale_8 \
 --dataset_mode Duke --model reid_hybrid_cycle_gan \
 --up_scale 8 --gpu 0,1,2,3 --no_dropout --batch_size 16 --reid_lr 0.03 --netG resnet_6blocks --stage 0
+python train_joint.py --dataroot DukeMTMC-reID \
+--name Duke_reid_hybrid_cyclegan_upscale_8_resnet_6blocks_rec_20_stage0 \
+--SR_name Duke_hybrid_cyclegan_upscale_8_resnet_6blocks_rec_20 \
+--reid_name hybrid_cyclegan_rec_20_Duke_Reid_upscale_8 \
+--dataset_mode Duke --model reid_hybrid_cycle_gan \
+--up_scale 8 --gpu 0,1,2,3 --no_dropout --batch_size 16 --reid_lr 0.05 --netG resnet_6blocks --stage 0
+
 
 python train_joint.py --dataroot DukeMTMC-reID \
 --name Duke_reid_hybrid_cCyclegan_upscale_8_resnet_6blocks_stage0 \

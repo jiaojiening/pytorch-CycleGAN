@@ -125,17 +125,24 @@ def define_D(input_nc, ndf, netD,
 
 
 def compute_psnr(target, prediction):
+    # because of the normalize
+    target = target*0.5 + 0.5
+    prediction = prediction*0.5 + 0.5
     mse_loss = nn.MSELoss()
     mse = mse_loss(target, prediction)
     # print(mse.item())
     psnr = 10 * log10(1.0 / mse.item())
+    # because of the normalize
+    # psnr = 10 * log10(1.0 / (mse.item()*0.5*0.5))
     return psnr
 
-
 def compute_ssim(target, prediction):
-    # print(pytorch_ssim.ssim(target, prediction))
+    # because of the normalize
+    target = (target * 0.5 + 0.5)*255.0
+    prediction = (prediction * 0.5 + 0.5)*255.0
     ssim_loss = pytorch_ssim.SSIM(window_size = 11)
     ssim = ssim_loss(target, prediction)
+    # print(pytorch_ssim.ssim(target, prediction))
     return ssim
 
 

@@ -22,6 +22,7 @@ class ReidHybridCycleGANModel(BaseModel):
                                 help='use identity mapping. Setting lambda_identity other than 0 has an effect of scaling the weight of the identity mapping loss. '
                                      'For example, if the weight of the identity loss should be 10 times smaller than the weight of the reconstruction loss, please set lambda_identity = 0.1')
             parser.add_argument('--lambda_rec', type=float, default=10.0, help='weight for reconstruction loss')
+            parser.add_argument('--lambda_G', type=float, default=1.0, help='weight for Generator loss')
             # reid parameters
             parser.add_argument('--droprate', type=float, default=0.5, help='the dropout ratio in reid model')
 
@@ -200,6 +201,7 @@ class ReidHybridCycleGANModel(BaseModel):
         lambda_A = self.opt.lambda_A
         lambda_B = self.opt.lambda_B
         lambda_rec = self.opt.lambda_rec
+        lambda_G = self.opt.lambda_G
 
         # Identity loss
         if lambda_idt > 0:
@@ -214,14 +216,16 @@ class ReidHybridCycleGANModel(BaseModel):
             self.loss_idt_B = 0
 
         # GAN loss D_A(G_A(A))
-        self.loss_G_A = self.criterionGAN(self.netD_A(self.fake_LR_A), True)
+        # self.loss_G_A = self.criterionGAN(self.netD_A(self.fake_LR_A), True)
+        self.loss_G_A = self.criterionGAN(self.netD_A(self.fake_LR_A), True) * lambda_G
         # GAN loss D_B(G_B(B))
         # used for GAN
         # self.loss_G_B = self.criterionGAN(self.netD_B(self.fake_HR_A), True)
         # used for CycleGAN
         # self.loss_G_B = self.criterionGAN(self.netD_B(self.fake_HR_B), True)
         fake_HR = torch.cat([self.fake_HR_A, self.fake_HR_B], 0)
-        self.loss_G_B = self.criterionGAN(self.netD_B(fake_HR), True)
+        # self.loss_G_B = self.criterionGAN(self.netD_B(fake_HR), True)
+        self.loss_G_B = self.criterionGAN(self.netD_B(fake_HR), True) * lambda_G
         # Forward cycle loss
         self.loss_cycle_A = self.criterionCycle(self.rec_HR_A, self.real_HR_A) * lambda_A
         # Backward cycle loss

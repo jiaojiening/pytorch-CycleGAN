@@ -16,3 +16,5 @@ python evaluate_reid.py --dataroot Market --name SRcCyclegan_Market_Reid_upscale
 python test_reid.py --dataroot Market --name SRcCyclegan_Market_Reid_upscale_8_resnet_6blocks --dataset_mode SR_Market --model reid --gpu 2 --no_dropout --SR_name Market_SRcCyclegan_upscale_8_resnet_6blocks
 python evaluate_reid.py --dataroot Market --name SRcCyclegan_Market_Reid_upscale_8_resnet_6blocks
 
+python test_reid.py --dataroot Market --name LapSRN_Market_Reid_upscale_8 --dataset_mode SR_Market --model reid --gpu 5 --no_dropout --SR_name LapSRN_market --results_dir /home/share/jiening/dgd_datasets/raw --up_scale 8
+python evaluate_reid.py --dataroot Market --results_dir /home/share/jiening/dgd_datasets/raw --name LapSRN_Market_Reid_upscale_8

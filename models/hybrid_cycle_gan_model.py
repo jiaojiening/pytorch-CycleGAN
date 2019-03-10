@@ -14,13 +14,26 @@ class HybridCycleGANModel(BaseModel):
         # default GAN did not use dropout
         parser.set_defaults(no_dropout=True)
         if is_train:
-            parser.add_argument('--lambda_A', type=float, default=10.0, help='weight for cycle loss (A -> B -> A)')
-            parser.add_argument('--lambda_B', type=float, default=10.0,
-                                help='weight for cycle loss (B -> A -> B)')
+            # parser.add_argument('--lambda_A', type=float, default=10.0, help='weight for cycle loss (A -> B -> A)')
+            # parser.add_argument('--lambda_B', type=float, default=10.0, help='weight for cycle loss (B -> A -> B)')
+            # parser.add_argument('--lambda_rec', type=float, default=20.0, help='weight for reconstruction loss')
             parser.add_argument('--lambda_identity', type=float, default=0.5,
                                 help='use identity mapping. Setting lambda_identity other than 0 has an effect of scaling the weight of the identity mapping loss. '
                                      'For example, if the weight of the identity loss should be 10 times smaller than the weight of the reconstruction loss, please set lambda_identity = 0.1')
-            parser.add_argument('--lambda_rec', type=float, default=10.0, help='weight for reconstruction loss')
+            #
+            # parser.add_argument('--lambda_A', type=float, default=1.0, help='weight for cycle loss (A -> B -> A)')
+            # parser.add_argument('--lambda_B', type=float, default=1.0, help='weight for cycle loss (B -> A -> B)')
+            # parser.add_argument('--lambda_rec', type=float, default=1.0, help='weight for reconstruction loss')
+            # parser.add_argument('--lambda_G', type=float, default=0.001, help='weight for Generator loss')
+
+            parser.add_argument('--lambda_A', type=float, default=1000, help='weight for cycle loss (A -> B -> A)')
+            parser.add_argument('--lambda_B', type=float, default=1000, help='weight for cycle loss (B -> A -> B)')
+            parser.add_argument('--lambda_rec', type=float, default=1000, help='weight for reconstruction loss')
+            parser.add_argument('--lambda_G', type=float, default=1.0, help='weight for Generator loss')
+
+            # parser.add_argument('--lambda_identity', type=float, default=0.0,
+            #                     help='use identity mapping. Setting lambda_identity other than 0 has an effect of scaling the weight of the identity mapping loss. '
+            #                          'For example, if the weight of the identity loss should be 10 times smaller than the weight of the reconstruction loss, please set lambda_identity = 0.1')
 
         return parser
 
@@ -67,9 +80,13 @@ class HybridCycleGANModel(BaseModel):
             self.fake_HR_B_pool = ImagePool(opt.pool_size)  # fake_A_pool
             # define loss functions
             self.criterionGAN = networks.GANLoss(use_lsgan=not opt.no_lsgan).to(self.device)
-            self.criterionCycle = torch.nn.L1Loss()
+            # MSELoss VS L1Loss
             self.criterionIdt = torch.nn.L1Loss()
+            self.criterionCycle = torch.nn.L1Loss()
             self.criterionRec = torch.nn.L1Loss()
+            # self.criterionIdt = torch.nn.MSELoss()
+            # self.criterionCycle = torch.nn.MSELoss()
+            # self.criterionRec = torch.nn.MSELoss()
             # initialize optimizers
             self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG_A.parameters(), self.netG_B.parameters()),
                                                 lr=opt.lr, betas=(opt.beta1, 0.999))
@@ -130,11 +147,10 @@ class HybridCycleGANModel(BaseModel):
         # # used for GAN
         # self.loss_D_A = self.backward_D_basic(self.netD_A, self.real_LR_A, fake_LR_A)
         # used for CycleGAN(v2)
-        self.loss_D_A = self.backward_D_basic(self.netD_A, self.real_LR_B, fake_LR_A)
+        # self.loss_D_A = self.backward_D_basic(self.netD_A, self.real_LR_B, fake_LR_A)
         # TODO: D_A coverage too fast
-        # real_LR = torch.cat([self.real_LR_A, self.real_LR_B], 0)
-        # self.loss_D_A = self.backward_D_basic(self.netD_A, real_LR, fake_LR_A)
-
+        real_LR = torch.cat([self.real_LR_A, self.real_LR_B], 0)
+        self.loss_D_A = self.backward_D_basic(self.netD_A, real_LR, fake_LR_A)
 
     def backward_D_B(self):
         fake_HR_A = self.fake_HR_A_pool.query(self.fake_HR_A)  # GAN
@@ -151,6 +167,7 @@ class HybridCycleGANModel(BaseModel):
         lambda_A = self.opt.lambda_A
         lambda_B = self.opt.lambda_B
         lambda_rec = self.opt.lambda_rec
+        lambda_G = self.opt.lambda_G
 
         # Identity loss
         if lambda_idt > 0:
@@ -165,11 +182,13 @@ class HybridCycleGANModel(BaseModel):
             self.loss_idt_B = 0
 
         # GAN loss D_A(G_A(A))
-        self.loss_G_A = self.criterionGAN(self.netD_A(self.fake_LR_A), True)
+        # self.loss_G_A = self.criterionGAN(self.netD_A(self.fake_LR_A), True)
+        self.loss_G_A = self.criterionGAN(self.netD_A(self.fake_LR_A), True)*lambda_G
         # GAN loss D_B(G_B(B))
         # self.loss_G_B = self.criterionGAN(self.netD_B(self.fake_HR_B), True)
         fake_HR = torch.cat([self.fake_HR_A, self.fake_HR_B], 0)
-        self.loss_G_B = self.criterionGAN(self.netD_B(fake_HR), True)
+        # self.loss_G_B = self.criterionGAN(self.netD_B(fake_HR), True)
+        self.loss_G_B = self.criterionGAN(self.netD_B(fake_HR), True)*lambda_G
         # Forward cycle loss
         self.loss_cycle_A = self.criterionCycle(self.rec_HR_A, self.real_HR_A) * lambda_A
         # Backward cycle loss

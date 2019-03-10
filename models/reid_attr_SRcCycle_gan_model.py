@@ -1,6 +1,6 @@
 import torch
 import itertools
-from util.image_pool import ImagePool
+from util.image_pool import ImagePool, AttrImagePool
 from .base_model import BaseModel
 from . import networks
 from . import networks_reid
@@ -76,7 +76,7 @@ class ReidAttrSRcCycleGANModel(BaseModel):
                                             opt.num_attr)
 
         if self.isTrain:
-            self.fake_A_pool = ImagePool(opt.pool_size)
+            self.fake_A_pool = AttrImagePool(opt.pool_size)
             self.fake_B_pool = ImagePool(opt.pool_size)
             # define loss functions
             self.criterionGAN = networks.GANLoss(use_lsgan=not opt.no_lsgan).to(self.device)
@@ -191,15 +191,16 @@ class ReidAttrSRcCycleGANModel(BaseModel):
         loss_D.backward()
         return loss_D
 
-    def backward_D_condit(self, netD, real, fake, real_attr, fake_attr):
+    def backward_D_condit(self, netD, real, fake, real_attr_HR, real_attr_LR, fake_attr_HR):
         # Real
-        pred_real = netD(real, real_attr)
+        pred_real = netD(real, real_attr_HR)
         loss_D_real = self.criterionGAN(pred_real, True)
 
         # Fake
-        pred_fake_1 = netD(fake.detach(), real_attr)
+        # real_attr_LR: the according attributes of fake
+        pred_fake_1 = netD(fake.detach(), real_attr_LR)
         loss_D_fake_1 = self.criterionGAN(pred_fake_1, False)
-        pred_fake_2 = netD(real, fake_attr)
+        pred_fake_2 = netD(real, fake_attr_HR)
         loss_D_fake_2 = self.criterionGAN(pred_fake_2, False)
         loss_D_fake = (loss_D_fake_1 + loss_D_fake_2) * 0.5
 
@@ -214,8 +215,12 @@ class ReidAttrSRcCycleGANModel(BaseModel):
         self.loss_D_A = self.backward_D_basic(self.netD_A, self.real_B, fake_B)
 
     def backward_D_B(self):
-        fake_A = self.fake_A_pool.query(self.fake_A)
-        self.loss_D_B = self.backward_D_condit(self.netD_B, self.real_A, fake_A, self.A_real_attr, self.B_real_attr)
+        fake_A, B_real_attr = self.fake_A_pool.query(self.fake_A, self.B_real_attr)
+        # self.loss_D_B = self.backward_D_condit(self.netD_B, self.real_A, fake_A, self.A_real_attr, self.B_real_attr)
+        # To avoid the self.A_real_attr = self.B_real_attr
+        # self.loss_D_B = self.backward_D_condit(self.netD_B, self.real_A, fake_A, self.A_real_attr, self.A_fake_attr)
+        self.loss_D_B = self.backward_D_condit(self.netD_B, self.real_A, fake_A,
+                                               self.A_real_attr, B_real_attr, self.A_fake_attr)
 
     def backward_G(self):
         lambda_idt = self.opt.lambda_identity
@@ -246,7 +251,7 @@ class ReidAttrSRcCycleGANModel(BaseModel):
         # GAN loss D_A(G_A(A))
         self.loss_G_A = self.criterionGAN(self.netD_A(self.fake_B), True)
         # GAN loss D_B(G_B(B))
-        self.loss_G_B = self.criterionGAN(self.netD_B(self.fake_A, self.A_real_attr), True)
+        self.loss_G_B = self.criterionGAN(self.netD_B(self.fake_A, self.B_real_attr), True)
         # Forward cycle loss
         self.loss_cycle_A = self.criterionCycle(self.rec_A, self.real_A) * lambda_A
         # Backward cycle loss

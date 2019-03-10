@@ -60,7 +60,7 @@ class SRDukeDataset(BaseDataset):
             self.A_labels = [train_id_labels[i] for i in A_Idx]
 
             # get the super-resolution B set
-            opt.results_dir = './results/'
+            # opt.results_dir = './results/'
             dir_SR_B = os.path.join(opt.results_dir, opt.SR_name, '%s_%s' % (opt.phase, opt.epoch))
             # dir_SR_B = os.path.join(opt.results_dir, opt.SR_name, '%s_%s' % (opt.phase, 'latest'))
             SR_B_paths, SR_B_labels = make_SR_dataset(dir_SR_B)
@@ -88,9 +88,8 @@ class SRDukeDataset(BaseDataset):
             # -----------------------------------------
             # super-resolution query (test B) LR
             # self.dir_query = os.path.join(self.dataPath, opt.dataroot, 'query')  # images in the query
-            dir_SR_query = os.path.join(opt.results_dir, opt.SR_name, '%s_%s' % (opt.save_phase, opt.epoch))
+            # dir_SR_query = os.path.join(opt.results_dir, opt.SR_name, '%s_%s' % (opt.save_phase, opt.epoch))
             dir_SR_query = os.path.join(opt.results_dir, opt.SR_name, '%s_%s' % (opt.save_phase, 'latest'))
-            # dir_SR_query = os.path.join(opt.results_dir, opt.SR_name, '%s_%s' % (opt.phase, opt.epoch))
             SR_query_paths, query_labels = make_SR_dataset(dir_SR_query)
             query_num = len(SR_query_paths)  # 2228
             print('total %d images in query' % query_num)

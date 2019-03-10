@@ -40,5 +40,7 @@ python evaluate_reid.py --dataroot DukeMTMC-reID --name Duke_reid_attr_SRcCycleg
 
 python test_reid_SR.py --dataroot DukeMTMC-reID --name Duke_reid_hybrid_cyclegan_upscale_8_resnet_6blocks_stage0 --dataset_mode single_Duke --model test_reid_cyclegan --gpu 7 --no_dropout --up_scale 8 --netG resnet_6blocks
 python evaluate_reid.py --dataroot DukeMTMC-reID --name Duke_reid_hybrid_cyclegan_upscale_8_resnet_6blocks_stage0
-python test_reid_SR.py --dataroot DukeMTMC-reID --name Duke_reid_hybrid_cCyclegan_upscale_8_resnet_6blocks_stage0 --dataset_mode single_Duke --model test_reid_SR --gpu 0 --no_dropout --up_scale 8 --netG resnet_6blocks
+python test_reid_SR.py --dataroot DukeMTMC-reID --name Duke_reid_hybrid_cyclegan_upscale_8_resnet_6blocks_rec_20_stage0 --dataset_mode single_Duke --model test_reid_cyclegan --gpu 7 --no_dropout --up_scale 8 --netG resnet_6blocks
+python evaluate_reid.py --dataroot DukeMTMC-reID --name Duke_reid_hybrid_cyclegan_upscale_8_resnet_6blocks_rec_20_stage0
+python test_reid_SR.py --dataroot DukeMTMC-reID --name Duke_reid_hybrid_cCyclegan_upscale_8_resnet_6blocks_stage0 --dataset_mode single_Duke --model test_reid_SR --gpu 7 --no_dropout --up_scale 8 --netG resnet_6blocks
 python evaluate_reid.py --dataroot DukeMTMC-reID --name Duke_reid_hybrid_cCyclegan_upscale_8_resnet_6blocks_stage0

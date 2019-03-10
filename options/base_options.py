@@ -47,6 +47,7 @@ class BaseOptions():
         parser.add_argument('--verbose', action='store_true', help='if specified, print more debugging information')
         parser.add_argument('--suffix', default='', type=str, help='customized suffix: opt.name = opt.name + suffix: e.g., {model}_{netG}_size{loadSize}')
         parser.add_argument('--save_phase', type=str, default='test', help='train, val, test, etc')
+        parser.add_argument('--results_dir', type=str, default='./results/', help='saves results here.')
         self.initialized = True
         return parser
 
